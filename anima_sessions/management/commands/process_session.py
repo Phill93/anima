@@ -21,6 +21,8 @@ from characters.llm import LLMClient
 from memory.retriever import MemoryRetriever
 from memory.services import MemoryEngine
 from memory.models import Memory
+from relationships.models import Relationship
+from relationships.updater import RelationshipUpdater
 
 
 class Command(BaseCommand):
@@ -96,7 +98,30 @@ Summary:
             )
             self.stdout.write(f"  Added trait '{new_trait_data['trait']}'")
 
-        # --- 4. Memory Condensation (Optional) ---
+        # --- 4. Relationship Updates ---
+        self.stdout.write("Updating Relationships...")
+        updater = RelationshipUpdater(llm)
+        all_chars = list(Character.objects.exclude(pk=character.pk).values_list("name", flat=True))
+        
+        if all_chars:
+            interactions = updater.analyze(character, summary, all_chars)
+            for interaction in interactions.get("interactions", []):
+                other_char_name = interaction["character"]
+                try:
+                    other_char = Character.objects.get(name=other_char_name)
+                    rel, created = Relationship.objects.get_or_create(
+                        character_a=character,
+                        character_b=other_char
+                    )
+                    old_score = rel.score
+                    rel.score = max(-1.0, min(1.0, rel.score + interaction["delta"]))
+                    rel.notes += f"\n[Session {session.pk}] {interaction['reason']}"
+                    rel.save()
+                    self.stdout.write(f"  Updated relation with '{other_char_name}': {old_score} -> {rel.score}")
+                except Character.DoesNotExist:
+                    pass
+
+        # --- 5. Memory Condensation (Optional) ---
         if options["condense"]:
             self.stdout.write("Running Memory Condensation...")
             condenser = MemoryCondensation(llm)
