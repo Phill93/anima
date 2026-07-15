@@ -37,6 +37,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    # Anima Apps
+    'characters',
+    'anima_sessions',
+    'worlds',
+    'scenarios',
+    'relationships',
+    'memory',
 ]
 
 MIDDLEWARE = [

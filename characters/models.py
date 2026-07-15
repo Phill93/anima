@@ -25,7 +25,7 @@ class Trait(models.Model):
         Character, related_name="active_traits", on_delete=models.CASCADE
     )
     evolved_from_session = models.ForeignKey(
-        'sessions.Session', null=True, on_delete=models.SET_NULL
+        'anima_sessions.Session', null=True, on_delete=models.SET_NULL
     )
     is_core = models.BooleanField(
         default=False, help_text="If True, this trait cannot be condensed."
