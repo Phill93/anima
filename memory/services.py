@@ -15,17 +15,19 @@ CHROMA_PATH = os.path.expanduser("~/.hermes/chroma/anima")
 client = chromadb.PersistentClient(path=CHROMA_PATH)
 
 # Single collection for all memories
+ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+    model_name="BAAI/bge-m3"
+)
 collection = client.get_or_create_collection(
     name="memories",
     metadata={"hnsw:space": "cosine"},
+    embedding_function=ef,
 )
 
 
 def get_ef():
     """
     Return the embedding function for BGE-m3.
-    We use the built-in Chroma helper to ensure compatibility with the 
-    collection's internal encoding.
     """
     return embedding_functions.SentenceTransformerEmbeddingFunction(
         model_name="BAAI/bge-m3"
@@ -46,13 +48,15 @@ class MemoryEngine:
         Add a memory to Chroma.
         Returns the generated Chroma ID.
         """
+        # Dedup check
         existing = self.collection.get(
-            where={"character_id": str(character_id), "embedding_id": embedding_id},
+            where={"character_id": str(character_id)},
             include=["metadatas"],
         )
         if existing["ids"]:
-            # Avoid duplicate embedding_id inserts
-            return existing["ids"][0]
+            for meta, doc_id in zip(existing["metadatas"], existing["ids"]):
+                if meta.get("embedding_id") == embedding_id:
+                    return doc_id
 
         doc_id = f"char_{character_id}_{embedding_id or text[:20]}"
         metadata = {
@@ -72,9 +76,10 @@ class MemoryEngine:
         """
         Semantic search for memories of a specific character.
         """
-        where = {"character_id": str(character_id)}
+        char_id_str = str(character_id)
+        where = {"character_id": char_id_str}
         if memory_type:
-            where["memory_type"] = memory_type
+            where["$and"] = [{"character_id": char_id_str}, {"memory_type": memory_type}]
 
         result = self.collection.query(
             query_texts=[query_text],
