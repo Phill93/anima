@@ -3,6 +3,7 @@ Management command to run an interactive RP session.
 
 Usage: python manage.py run_session --character <id> [--world <id>] [--scenario <id>]
 """
+import os
 from django.core.management.base import BaseCommand, CommandError
 from characters.models import Character, Trait
 from worlds.models import World
@@ -21,8 +22,8 @@ class Command(BaseCommand):
         parser.add_argument("--character", type=int, required=True, help="Character ID")
         parser.add_argument("--world", type=int, help="World ID (optional)")
         parser.add_argument("--scenario", type=int, help="Scenario ID (optional)")
-        parser.add_argument("--llm-url", type=str, default="http://localhost:8001/v1", help="LLM API base URL")
-        parser.add_argument("--llm-model", type=str, default="local-model", help="LLM Model name")
+        parser.add_argument("--llm-url", type=str, default=None, help="LLM API base URL")
+        parser.add_argument("--llm-model", type=str, default=None, help="LLM Model name")
 
     def handle(self, *args, **options):
         # --- Setup ---
@@ -45,6 +46,27 @@ class Command(BaseCommand):
             except Scenario.DoesNotExist:
                 self.stdout.write(self.style.WARNING(f"Scenario {options['scenario']} not found, continuing without it."))
 
+        # Initialize LLM (default to KIT Toolbox if local vLLM isn't specified)
+        llm_base = options["llm_url"] or os.getenv("LLM_BASE_URL", "https://ki-toolbox.scc.kit.edu/api/v1")
+        llm_model = options["llm_model"] or os.getenv("LLM_MODEL", "kit.mistral-small-4-119b-a8b")
+        llm_key = os.getenv("KIT_API_KEY", os.getenv("LLM_API_KEY", ""))
+        
+        # Read KIT_API_KEY from Hermes env if not in current env
+        if not llm_key:
+            env_path = os.path.expanduser("~/.hermes/.env")
+            if os.path.exists(env_path):
+                with open(env_path) as f:
+                    for line in f:
+                        if line.startswith("KIT_API_KEY="):
+                            llm_key = line.strip().split("=", 1)[1]
+                            break
+
+        llm = LLMClient(
+            base_url=llm_base,
+            api_key=llm_key,
+            model=llm_model,
+        )
+
         # Create Session
         session = Session.objects.create(
             character=character,
@@ -56,10 +78,6 @@ class Command(BaseCommand):
         # Initialize components
         retriever = MemoryRetriever()
         builder = PromptBuilder(max_tokens=4096)
-        llm = LLMClient(
-            base_url=options["llm_url"],
-            model=options["llm_model"],
-        )
 
         self.stdout.write(self.style.SUCCESS(f"Starting session with {character.name}..."))
         self.stdout.write("Type 'exit' or 'quit' to end the session. Type 'help' for commands.\n")
