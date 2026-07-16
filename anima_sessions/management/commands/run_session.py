@@ -102,7 +102,7 @@ class Command(BaseCommand):
             response = llm.generate(prompt, temperature=0.8, max_tokens=2048)
 
             # Save turn
-            SessionTurn.objects.create(
+            turn = SessionTurn.objects.create(
                 session=session,
                 turn_number=session.turn_count + 1,
                 user_message=user_input,
@@ -110,6 +110,15 @@ class Command(BaseCommand):
             )
             session.turn_count += 1
             session.save()
+
+            # Save as Memory (semantic storage)
+            memory_text = f"{user_input} -> {response[:100]}"
+            retriever.add_memory(
+                character=character,
+                text=memory_text,
+                memory_type="event",
+                embedding_id=f"session_{session.pk}_turn_{turn.pk}"
+            )
 
             self.stdout.write(f"\n{response}")
 
