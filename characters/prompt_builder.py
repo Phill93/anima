@@ -21,7 +21,7 @@ class PromptBuilder:
     def __init__(self, max_tokens: int = 4096):
         self.max_tokens = max_tokens
 
-    def build(self, character: Character, world_context: str = "", memories: list = None, conversation: list = None) -> str:
+    def build(self, character: Character, world_context: str = "", memories: list = None, conversation: list = None, scenario: object = None) -> str:
         """
         Build the complete prompt for the LLM.
         
@@ -30,14 +30,20 @@ class PromptBuilder:
             world_context: Pre-rendered world info snippet
             memories: List of memory dicts from Chroma query
             conversation: List of (user, character) turn dicts
+            scenario: Optional Scenario instance
+            
+        Returns:
+            The final prompt string.
         """
         parts = []
+        debug_info = {}
 
         # --- Global Instructions (System-wide rules) ---
         from characters.global_config import get_global_instructions
         global_instr = get_global_instructions()
         if global_instr:
             parts.append("Global Rules:\n" + "\n".join(global_instr))
+            debug_info["global_rules"] = global_instr
 
         # --- System Header ---
         parts.append(f"You are {character.name}.")
@@ -49,6 +55,7 @@ class PromptBuilder:
                 f"{t.name} ({t.weight})" for t in core_traits
             ])
             parts.append(f"Core Traits (fixed): {core_text}")
+            debug_info["core_traits"] = core_text
 
         # --- Active Traits (Top 5 by weight) ---
         active_traits = character.active_traits.filter(is_core=False).order_by("-weight")[:5]
@@ -57,6 +64,7 @@ class PromptBuilder:
                 f"{t.name} ({t.weight})" for t in active_traits
             ])
             parts.append(f"Current Traits: {traits_text}")
+            debug_info["active_traits"] = traits_text
 
         # --- Personality / Voice ---
         personality = character.personality or {}
@@ -67,6 +75,7 @@ class PromptBuilder:
                     voice_parts.append(f"{key}: {personality[key]}")
             if voice_parts:
                 parts.append("Personality: " + " | ".join(voice_parts))
+                debug_info["personality"] = " | ".join(voice_parts)
 
         # --- Memories (Top 3) ---
         if memories:
@@ -75,10 +84,12 @@ class PromptBuilder:
                 memory_texts.append(m)
             if memory_texts:
                 parts.append("Relevant Memories: " + "; ".join(memory_texts[:3]))
+                debug_info["memories"] = memory_texts[:3]
 
         # --- World Context ---
         if world_context:
             parts.append(f"World: {world_context}")
+            debug_info["world"] = world_context
 
         # --- Conversation History ---
         if conversation:
@@ -93,5 +104,6 @@ class PromptBuilder:
 
             if convo_parts:
                 parts.append("Recent Conversation:\n" + "\n\n".join(reversed(convo_parts)))
+                debug_info["history"] = convo_parts
 
-        return "\n\n".join(parts)
+        return {"prompt": "\n\n".join(parts), "debug": debug_info}

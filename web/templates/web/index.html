@@ -77,8 +77,12 @@ function renderChat(sessionId, characterName, history = []) {
     content.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
             <h2 style="color: var(--accent);">${characterName}</h2>
-            <button class="btn btn-back" onclick="location.reload()">Exit</button>
+            <div>
+                <button class="btn btn-small" onclick="toggleDebug()">🐲 Debug Prompt</button>
+                <button class="btn btn-back" onclick="location.reload()">Exit</button>
+            </div>
         </div>
+        <div id="debug-panel" style="display:none; background: var(--bg-color); border: 1px solid var(--border); padding: 1rem; margin-bottom: 1rem; font-family: monospace; font-size: 0.85rem; color: var(--text-secondary); max-height: 300px; overflow-y: auto; border-radius: 8px;"></div>
         <div id="chat-history" style="display:flex; flex-direction:column; gap:1rem;"></div>
     `;
 
@@ -99,6 +103,36 @@ function renderChat(sessionId, characterName, history = []) {
     const input = document.getElementById('chat-input');
     const sendBtn = document.getElementById('send-btn');
     let isLoading = false;
+    let currentDebug = {};
+
+    function toggleDebug() {
+        const panel = document.getElementById('debug-panel');
+        if (panel.style.display === 'none' || panel.style.display === '') {
+            panel.style.display = 'block';
+            if (Object.keys(currentDebug).length > 0) {
+                panel.innerHTML = formatDebug(currentDebug);
+            } else {
+                panel.textContent = "Send a message to see the prompt debug info.";
+            }
+        } else {
+            panel.style.display = 'none';
+        }
+    }
+
+    function formatDebug(data) {
+        let html = '<div style="margin-bottom:0.5rem;"><strong>Global Rules:</strong><br>';
+        if (data.global_rules) html += data.global_rules.join('<br>') + '</div>';
+        else html += 'None</div>';
+
+        if (data.core_traits) html += `<div style="margin-bottom:0.5rem;"><strong>Core Traits:</strong><br>${data.core_traits}</div>`;
+        if (data.active_traits) html += `<div style="margin-bottom:0.5rem;"><strong>Active Traits:</strong><br>${data.active_traits}</div>`;
+        if (data.personality) html += `<div style="margin-bottom:0.5rem;"><strong>Personality:</strong><br>${data.personality}</div>`;
+        if (data.memories) html += `<div style="margin-bottom:0.5rem;"><strong>Memories:</strong><br>${data.memories.join('<br>')}</div>`;
+        if (data.world) html += `<div style="margin-bottom:0.5rem;"><strong>World:</strong><br>${data.world}</div>`;
+        if (data.history) html += `<div style="margin-bottom:0.5rem;"><strong>History (last turns):</strong><br>${data.history.join('<br><br>')}</div>`;
+
+        return html;
+    }
 
     function scrollToBottom() {
         historyDiv.scrollTop = historyDiv.scrollHeight;
@@ -136,6 +170,16 @@ function renderChat(sessionId, characterName, history = []) {
         .then(data => {
             historyDiv.removeChild(loading);
             addMessage(historyDiv, 'character', data.response);
+
+            // Update debug info
+            if (data.debug) {
+                currentDebug = data.debug;
+                const panel = document.getElementById('debug-panel');
+                if (panel.style.display === 'block') {
+                    panel.innerHTML = formatDebug(currentDebug);
+                }
+            }
+
             isLoading = false;
             input.disabled = false;
             sendBtn.disabled = false;

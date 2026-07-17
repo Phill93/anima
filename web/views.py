@@ -101,32 +101,35 @@ def chat_send(request):
     memory_results = retriever.retrieve(character, user_message, n_results=3)
     
     # Build prompt
-    prompt = builder.build(character, memories=memory_results, conversation=conversation)
-    
+    prompt_result = builder.build(character, memories=memory_results, conversation=conversation)
+    prompt = prompt_result['prompt']
+    debug_info = prompt_result['debug']
+
     # Call LLM
     response = llm.generate(prompt, temperature=0.8, max_tokens=2048)
-    
+
     # Save turn
     turn = SessionTurn.objects.create(
-        session=session,
-        turn_number=session.turn_count + 1,
-        user_message=user_message,
-        character_response=response,
+       session=session,
+       turn_number=session.turn_count + 1,
+       user_message=user_message,
+       character_response=response,
     )
     session.turn_count += 1
     session.save()
-    
+
     # Save as Memory
     retriever.add_memory(
-        character=character,
-        text=f"{user_message} -> {response[:100]}",
-        memory_type="event",
-        embedding_id=f"session_{session.pk}_turn_{turn.pk}"
+       character=character,
+       text=f"{user_message} -> {response[:100]}",
+       memory_type="event",
+       embedding_id=f"session_{session.pk}_turn_{turn.pk}"
     )
-    
+
     return JsonResponse({
-        'response': response,
-        'turn_number': turn.turn_number,
+       'response': response,
+       'turn_number': turn.turn_number,
+       'debug': debug_info,
     })
 
 
