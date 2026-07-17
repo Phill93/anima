@@ -1,0 +1,119 @@
+{% extends "web/base.html" %}
+{% block content %}
+{% for character in characters %}
+<div class="character-card" onclick="startSession({{ character.pk }})">
+    <div>
+        <div class="character-name">{{ character.name }}</div>
+        <div class="character-desc">{{ character.description|truncatewords:20 }}</div>
+    </div>
+    <button class="btn">Start Session</button>
+</div>
+{% empty %}
+<div style="text-align: center; color: var(--text-secondary); margin-top: 2rem;">
+    No characters found. Seed the database first.
+</div>
+{% endfor %}
+
+<script>
+function startSession(characterId) {
+    const content = document.getElementById('content');
+    const inputContainer = document.getElementById('input-container');
+
+    // Show loading
+    content.innerHTML = '<div style="text-align:center; color: var(--text-secondary); margin-top: 2rem;">Initializing session...</div>';
+
+    // Start session
+    fetch('/chat/init/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ character_id: characterId })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.error) {
+            content.innerHTML = `<div style="text-align:center; color: red;">Error: ${data.error}</div>`;
+            return;
+        }
+        // Render chat view
+        inputContainer.innerHTML = `
+            <div class="input-area">
+                <input type="text" id="chat-input" placeholder="Type your message..." autocomplete="off">
+                <button class="btn" id="send-btn">Send</button>
+            </div>
+        `;
+        renderChat(data.session_id, data.character_name);
+    });
+}
+
+function renderChat(sessionId, characterName) {
+    const content = document.getElementById('content');
+    content.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <h2 style="color: var(--accent);">${characterName}</h2>
+            <button class="btn btn-back" onclick="location.reload()">Exit</button>
+        </div>
+        <div id="chat-history" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:1rem;"></div>
+    `;
+
+    const history = document.getElementById('chat-history');
+    const input = document.getElementById('chat-input');
+    const sendBtn = document.getElementById('send-btn');
+    let isLoading = false;
+
+    function scrollToBottom() {
+        history.scrollTop = history.scrollHeight;
+    }
+
+    function addMessage(sender, text) {
+        const bubble = document.createElement('div');
+        bubble.className = `chat-bubble ${sender}`;
+        bubble.textContent = text;
+        history.appendChild(bubble);
+        scrollToBottom();
+    }
+
+    function sendMessage() {
+        if (isLoading || !input.value.trim()) return;
+        isLoading = true;
+        const text = input.value.trim();
+        input.value = '';
+        input.disabled = true;
+        sendBtn.disabled = true;
+        addMessage('user', text);
+
+        // Loading indicator
+        const loading = document.createElement('div');
+        loading.className = 'loading';
+        loading.textContent = '...';
+        history.appendChild(loading);
+        scrollToBottom();
+
+        fetch('/chat/send/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: sessionId, message: text })
+        })
+        .then(res => res.json())
+        .then(data => {
+            history.removeChild(loading);
+            addMessage('character', data.response);
+            isLoading = false;
+            input.disabled = false;
+            sendBtn.disabled = false;
+            input.focus();
+        })
+        .catch(err => {
+            history.removeChild(loading);
+            addMessage('character', `Error: ${err.message}`);
+            isLoading = false;
+            input.disabled = false;
+            sendBtn.disabled = false;
+        });
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
+    input.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
+    input.focus();
+}
+</script>
+{% endblock %}

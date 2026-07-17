@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'scenarios',
     'relationships',
     'memory',
+    'web',
 ]
 
 MIDDLEWARE = [
