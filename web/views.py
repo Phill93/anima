@@ -11,6 +11,7 @@ from anima_sessions.models import Session, SessionTurn
 from memory.retriever import MemoryRetriever
 from characters.prompt_builder import PromptBuilder
 from characters.llm import LLMClient
+from scenarios.evaluator import check_triggers
 
 
 def index(request):
@@ -18,13 +19,13 @@ def index(request):
     characters = Character.objects.prefetch_related('active_traits').all()
     char_ids = [c.pk for c in characters]
     recent_sessions = Session.objects.filter(character_id__in=char_ids).order_by('character_id', '-created_at')
-    
+
     # Build a mapping of character -> last session
     session_map = {}
     for s in recent_sessions:
         if s.character_id not in session_map:
             session_map[s.character_id] = s
-            
+
     # Combine characters and sessions for easier template access
     char_list = []
     for c in characters:
@@ -32,7 +33,7 @@ def index(request):
             'character': c,
             'last_session': session_map.get(c.pk)
         })
-    
+
     return render(request, 'web/index.html', {'char_list': char_list})
 
 
@@ -42,17 +43,17 @@ def chat_init(request):
     """Start a new session."""
     data = json.loads(request.body)
     character_id = data.get('character_id')
-    
+
     if not character_id:
         return JsonResponse({'error': 'No character_id provided'}, status=400)
-    
+
     character = get_object_or_404(Character, pk=character_id)
-    
+
     session = Session.objects.create(
         character=character,
         turn_count=0,
     )
-    
+
     return JsonResponse({
         'session_id': session.pk,
         'character_name': character.name,
@@ -66,22 +67,22 @@ def chat_send(request):
     data = json.loads(request.body)
     session_id = data.get('session_id')
     user_message = data.get('message', '').strip()
-    
+
     if not session_id or not user_message:
         return JsonResponse({'error': 'Missing session_id or message'}, status=400)
-    
+
     session = get_object_or_404(Session, pk=session_id)
     character = session.character
-    
+
     # --- Setup ---
     retriever = MemoryRetriever()
     builder = PromptBuilder(max_tokens=4096)
-    
+
     # LLM Config
     llm_base = os.getenv("LLM_BASE_URL", "https://ki-toolbox.scc.kit.edu/api/v1")
     llm_model = os.getenv("LLM_MODEL", "kit.mistral-small-4-119b-a8b")
     llm_key = os.getenv("KIT_API_KEY", os.getenv("LLM_API_KEY", ""))
-    
+
     if not llm_key:
         env_path = os.path.expanduser("~/.hermes/.env")
         if os.path.exists(env_path):
@@ -90,18 +91,21 @@ def chat_send(request):
                     if line.startswith("KIT_API_KEY="):
                         llm_key = line.strip().split("=", 1)[1]
                         break
-                        
+
     llm = LLMClient(base_url=llm_base, api_key=llm_key, model=llm_model)
-    
+
     # --- Build Context ---
     recent_turns = list(session.turns.order_by("-turn_number")[:10])
     conversation = [(t.user_message, t.character_response) for t in recent_turns]
-    
+
     # Retrieve memories
     memory_results = retriever.retrieve(character, user_message, n_results=3)
-    
+
+    # Check for active scenario triggers
+    active_scenarios = check_triggers(user_message)
+
     # Build prompt
-    prompt_result = builder.build(character, memories=memory_results, conversation=conversation)
+    prompt_result = builder.build(character, memories=memory_results, conversation=conversation, scenario=active_scenarios)
     prompt = prompt_result['prompt']
     debug_info = prompt_result['debug']
 
@@ -110,32 +114,32 @@ def chat_send(request):
 
     # Save turn
     turn = SessionTurn.objects.create(
-       session=session,
-       turn_number=session.turn_count + 1,
-       user_message=user_message,
-       character_response=response,
+        session=session,
+        turn_number=session.turn_count + 1,
+        user_message=user_message,
+        character_response=response,
     )
     session.turn_count += 1
     session.save()
 
     # Save as Memory
     retriever.add_memory(
-       character=character,
-       text=f"{user_message} -> {response[:100]}",
-       memory_type="event",
-       embedding_id=f"session_{session.pk}_turn_{turn.pk}"
+        character=character,
+        text=f"{user_message} -> {response[:100]}",
+        memory_type="event",
+        embedding_id=f"session_{session.pk}_turn_{turn.pk}"
     )
 
     return JsonResponse({
-       'response': response,
-       'turn_number': turn.turn_number,
-       'debug': debug_info,
+        'response': response,
+        'turn_number': turn.turn_number,
+        'debug': debug_info,
     })
 
 
 def chat(request):
-  """Chat view (initial load)."""
-  return render(request, 'web/chat.html')
+    """Chat view (initial load)."""
+    return render(request, 'web/chat.html')
 
 
 def manage(request):
@@ -158,12 +162,12 @@ def get_character_data(request):
     """Get character data including traits for the editor."""
     data = json.loads(request.body)
     char = get_object_or_404(Character, pk=data.get('id'))
-    
+
     traits = [
         {'id': t.pk, 'name': t.name, 'weight': t.weight, 'is_core': t.is_core}
         for t in char.active_traits.all()
     ]
-    
+
     return JsonResponse({
         'name': char.name,
         'description': char.description,
@@ -178,7 +182,7 @@ def get_character_memories(request):
     """Get all memories for a character from the DB."""
     data = json.loads(request.body)
     char = get_object_or_404(Character, pk=data.get('id'))
-    
+
     memories = char.memories.filter(is_archived=False).order_by('-created_at')
     mem_list = [
         {
@@ -190,7 +194,7 @@ def get_character_memories(request):
         }
         for m in memories[:50]
     ]
-    
+
     return JsonResponse({'memories': mem_list})
 
 
@@ -218,72 +222,72 @@ def delete_memory(request):
     """Delete a memory."""
     data = json.loads(request.body)
     mem_id = data.get('mem_id')
-    
+
     mem = get_object_or_404(__import__('memory.models', fromlist=['Memory']).Memory, pk=mem_id)
     # Also delete from Chroma
     engine = __import__('memory.services', fromlist=['MemoryEngine']).MemoryEngine()
     engine.delete(mem.embedding_id)
     mem.delete()
-    
+
     return JsonResponse({'success': True})
 
 
 @csrf_exempt
 @require_POST
 def save_character(request):
-  """Save character details."""
-  data = json.loads(request.body)
-  character_id = data.get('id')
-  char = get_object_or_404(Character, pk=character_id)
-    
-  char.name = data.get('name', char.name)
-  char.description = data.get('description', char.description)
-  # Personality is stored as a JSON field
-  char.personality = {
-      "voice": data.get('voice', ''),
-      "quirks": data.get('quirks', ''),
-      "backstory": data.get('backstory', ''),
-  }
-  char.save()
-    
-  return JsonResponse({'success': True})
+    """Save character details."""
+    data = json.loads(request.body)
+    character_id = data.get('id')
+    char = get_object_or_404(Character, pk=character_id)
+
+    char.name = data.get('name', char.name)
+    char.description = data.get('description', char.description)
+    # Personality is stored as a JSON field
+    char.personality = {
+        "voice": data.get('voice', ''),
+        "quirks": data.get('quirks', ''),
+        "backstory": data.get('backstory', ''),
+    }
+    char.save()
+
+    return JsonResponse({'success': True})
 
 
 @csrf_exempt
 @require_POST
 def save_trait(request):
-  """Add or update a trait."""
-  data = json.loads(request.body)
-  character_id = data.get('character_id')
-  trait_id = data.get('trait_id')
-    
-  defaults = {
-      'name': data.get('name', ''),
-      'weight': float(data.get('weight', 0.5)),
-      'is_core': bool(data.get('is_core', False)),
-  }
-    
-  if trait_id:
-      trait = get_object_or_404(Trait, pk=trait_id)
-      if defaults['name']: trait.name = defaults['name']
-      trait.weight = defaults['weight']
-      trait.is_core = defaults['is_core']
-      trait.save()
-  else:
-      Trait.objects.create(
-          character_id=character_id,
-          **defaults
-      )
-        
-  return JsonResponse({'success': True})
+    """Add or update a trait."""
+    data = json.loads(request.body)
+    character_id = data.get('character_id')
+    trait_id = data.get('trait_id')
+
+    defaults = {
+        'name': data.get('name', ''),
+        'weight': float(data.get('weight', 0.5)),
+        'is_core': bool(data.get('is_core', False)),
+    }
+
+    if trait_id:
+        trait = get_object_or_404(Trait, pk=trait_id)
+        if defaults['name']: trait.name = defaults['name']
+        trait.weight = defaults['weight']
+        trait.is_core = defaults['is_core']
+        trait.save()
+    else:
+        Trait.objects.create(
+            character_id=character_id,
+            **defaults
+        )
+
+    return JsonResponse({'success': True})
 
 
 @csrf_exempt
 @require_POST
 def delete_trait(request):
-  """Delete a trait."""
-  data = json.loads(request.body)
-  trait_id = data.get('trait_id')
-  trait = get_object_or_404(Trait, pk=trait_id)
-  trait.delete()
-  return JsonResponse({'success': True})
+    """Delete a trait."""
+    data = json.loads(request.body)
+    trait_id = data.get('trait_id')
+    trait = get_object_or_404(Trait, pk=trait_id)
+    trait.delete()
+    return JsonResponse({'success': True})

@@ -57,7 +57,7 @@ class PromptBuilder:
             parts.append(f"Core Traits (fixed): {core_text}")
             debug_info["core_traits"] = core_text
 
-        # --- Active Traits (Top 5 by weight) ---
+         # --- Active Traits (Top 5 by weight) ---
         active_traits = character.active_traits.filter(is_core=False).order_by("-weight")[:5]
         if active_traits.exists():
             traits_text = ", ".join([
@@ -65,6 +65,15 @@ class PromptBuilder:
             ])
             parts.append(f"Current Traits: {traits_text}")
             debug_info["active_traits"] = traits_text
+
+        # --- Scenarios (Active Triggers) ---
+        if scenario:
+            scenario_parts = []
+            for s in scenario:
+                scenario_parts.append(f"Scenario '{s['scenario_name']}' (matched: {s['condition']}): {s['action']}")
+            if scenario_parts:
+                parts.append("Active Scenarios:\n" + "\n".join(scenario_parts))
+                debug_info["active_scenarios"] = scenario_parts
 
         # --- Personality / Voice ---
         personality = character.personality or {}
