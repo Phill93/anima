@@ -185,6 +185,14 @@
             </div>
         </div>
 
+        <div class="section-title" style="margin-top: 2rem;">Worlds & Locations</div>
+        <div class="editor active" id="worldEditor">
+            <h2 style="margin-bottom: 1rem; color: var(--accent);">World Management</h2>
+            <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">Manage your worlds and locations. These are injected into the prompt as world context.</p>
+            <div id="worldsList"></div>
+            <button class="btn btn-outline btn-small" onclick="addWorldRow()">+ Add World</button>
+        </div>
+
         <div class="section-title" style="margin-top: 2rem;">Recent Sessions</div>
         <div class="session-list">
             {% for s in sessions %}
@@ -205,6 +213,7 @@
         // Load global settings on startup
         document.addEventListener('DOMContentLoaded', () => {
             fetchGlobalSettings();
+            fetchWorlds();
         });
 
         async function fetchGlobalSettings() {
@@ -416,6 +425,117 @@
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ trait_id: row.dataset.id })
+                });
+            }
+            row.remove();
+        }
+
+        async function fetchWorlds() {
+            // Render worlds passed from backend
+            const list = document.getElementById('worldsList');
+            list.innerHTML = '';
+            {% for w in worlds %}
+            addWorldRow({
+                id: {{ w.pk }},
+                name: "{{ w.name }}",
+                description: "{{ w.description }}",
+                rules: "{{ w.rules }}",
+                locations: []
+            });
+            {% empty %}
+            list.innerHTML = '<div style="text-align: center; color: var(--text-secondary);">No worlds found.</div>';
+            {% endfor %}
+        }
+
+        function addWorldRow(world = {}) {
+            const row = document.createElement('div');
+            row.className = 'trait-row';
+            row.style.flexDirection = 'column';
+            row.style.alignItems = 'stretch';
+            row.dataset.worldId = world.id || '';
+            row.innerHTML = `
+                <div style="display:flex; gap:0.5rem; align-items:center; margin-bottom:0.5rem;">
+                    <input type="text" class="world-name" placeholder="World Name" value="${world.name || ''}" style="flex:2; background:transparent; border:none; color:var(--text-primary); padding:0.4rem;">
+                    <button class="btn btn-small" onclick="saveWorldRow(this)">Save</button>
+                </div>
+                <textarea class="world-desc" placeholder="World Description" style="width:100%; background:var(--bg-color); border:1px solid var(--border); color:var(--text-primary); padding:0.5rem; border-radius:4px; min-height:50px; resize:vertical; margin-bottom:0.5rem;">${world.description || ''}</textarea>
+                <textarea class="world-rules" placeholder="World Rules / Lore" style="width:100%; background:var(--bg-color); border:1px solid var(--border); color:var(--text-primary); padding:0.5rem; border-radius:4px; min-height:40px; resize:vertical; margin-bottom:0.5rem;">${world.rules || ''}</textarea>
+                <div class="location-list" style="margin-left:1rem; margin-bottom:0.5rem;"></div>
+                <button class="btn btn-outline btn-small" onclick="addLocationRow(this)">+ Add Location</button>
+            `;
+            document.getElementById('worldsList').appendChild(row);
+        }
+
+        async function saveWorldRow(btn) {
+            const row = btn.parentElement;
+            const payload = {
+                id: row.dataset.worldId,
+                name: row.querySelector('.world-name').value,
+                description: row.querySelector('.world-desc').value,
+                rules: row.querySelector('.world-rules').value,
+            };
+
+            const res = await fetch('/manage/world/save/', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.success) {
+                row.dataset.worldId = data.world_id;
+                btn.style.color = 'var(--success)';
+                setTimeout(() => btn.style.color = 'var(--text-primary)', 1000);
+            }
+        }
+
+        function addLocationRow(btn) {
+            const worldRow = btn.parentElement;
+            const worldId = worldRow.dataset.worldId;
+            const list = worldRow.querySelector('.location-list');
+
+            const locRow = document.createElement('div');
+            locRow.className = 'trait-row';
+            locRow.style.marginLeft = '0.5rem';
+            locRow.dataset.locationId = '';
+            locRow.innerHTML = `
+                <input type="text" class="loc-name" placeholder="Location Name" value="" style="flex:2; background:transparent; border:none; color:var(--text-primary); padding:0.4rem;">
+                <input type="text" class="loc-desc" placeholder="Location Description" value="" style="flex:2; background:transparent; border:none; color:var(--text-secondary); padding:0.4rem;">
+                <button class="btn btn-small" onclick="saveLocationRow(this)">Save</button>
+                <button class="btn btn-danger btn-small" onclick="deleteLocationRow(this)">x</button>
+            `;
+            list.appendChild(locRow);
+        }
+
+        async function saveLocationRow(btn) {
+            const row = btn.parentElement;
+            const worldId = row.parentElement.parentElement.parentElement.dataset.worldId;
+            const payload = {
+                id: row.dataset.locationId,
+                world_id: worldId,
+                name: row.querySelector('.loc-name').value,
+                description: row.querySelector('.loc-desc').value,
+            };
+
+            const res = await fetch('/manage/location/save/', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.success) {
+                row.dataset.locationId = data.location_id;
+                btn.style.color = 'var(--success)';
+                setTimeout(() => btn.style.color = 'var(--text-primary)', 1000);
+            }
+        }
+
+        async function deleteLocationRow(btn) {
+            const row = btn.parentElement;
+            if (row.dataset.locationId) {
+                await fetch('/manage/location/delete/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ location_id: row.dataset.locationId })
                 });
             }
             row.remove();

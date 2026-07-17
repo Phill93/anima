@@ -15,4 +15,7 @@ urlpatterns = [
     path('manage/char/save/', views.save_character, name='save_character'),
     path('manage/trait/save/', views.save_trait, name='save_trait'),
     path('manage/trait/delete/', views.delete_trait, name='delete_trait'),
+    path('manage/world/save/', views.save_world, name='save_world'),
+    path('manage/location/save/', views.save_location, name='save_location'),
+    path('manage/location/delete/', views.delete_location, name='delete_location'),
 ]

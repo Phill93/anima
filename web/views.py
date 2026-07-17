@@ -12,6 +12,7 @@ from memory.retriever import MemoryRetriever
 from characters.prompt_builder import PromptBuilder
 from characters.llm import LLMClient
 from scenarios.evaluator import check_triggers
+from worlds.models import World, Location
 
 
 def index(request):
@@ -146,7 +147,8 @@ def manage(request):
     """Management dashboard."""
     characters = Character.objects.prefetch_related('active_traits').all()
     sessions = Session.objects.select_related('character').order_by('-created_at')[:20]
-    return render(request, 'web/manage.html', {'characters': characters, 'sessions': sessions})
+    worlds = World.objects.prefetch_related('locations').all()
+    return render(request, 'web/manage.html', {'characters': characters, 'sessions': sessions, 'worlds': worlds})
 
 
 def view_session(request, session_id):
@@ -290,4 +292,57 @@ def delete_trait(request):
     trait_id = data.get('trait_id')
     trait = get_object_or_404(Trait, pk=trait_id)
     trait.delete()
+    return JsonResponse({'success': True})
+
+
+@csrf_exempt
+@require_POST
+def save_world(request):
+    """Create or update a world."""
+    data = json.loads(request.body)
+    world_id = data.get('id')
+
+    if world_id:
+        world = get_object_or_404(World, pk=world_id)
+    else:
+        world = World()
+
+    world.name = data.get('name', world.name)
+    world.description = data.get('description', world.description)
+    world.rules = data.get('rules', world.rules)
+    world.lore = data.get('lore', world.lore)
+    world.save()
+
+    return JsonResponse({'success': True, 'world_id': world.pk})
+
+
+@csrf_exempt
+@require_POST
+def save_location(request):
+    """Create or update a location."""
+    data = json.loads(request.body)
+    location_id = data.get('id')
+
+    if location_id:
+        location = get_object_or_404(Location, pk=location_id)
+    else:
+        location = Location()
+
+    location.name = data.get('name', location.name)
+    location.description = data.get('description', location.description)
+    location.connections = data.get('connections', location.connections)
+    location.world_id = data.get('world_id')
+    location.save()
+
+    return JsonResponse({'success': True, 'location_id': location.pk})
+
+
+@csrf_exempt
+@require_POST
+def delete_location(request):
+    """Delete a location."""
+    data = json.loads(request.body)
+    location_id = data.get('location_id')
+    location = get_object_or_404(Location, pk=location_id)
+    location.delete()
     return JsonResponse({'success': True})
