@@ -82,6 +82,18 @@
         .btn:hover { background-color: var(--accent-hover); }
         .btn-back { background-color: transparent; color: var(--text-secondary); border: 1px solid var(--border); }
         .btn-back:hover { background-color: var(--card-bg); color: var(--text-primary); }
+        .btn-tab {
+            background: transparent;
+            border: none;
+            padding: 0.5rem 1rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+        .btn-tab.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
         .chat-bubble {
             max-width: 80%;
             padding: 1rem 1.2rem;
@@ -133,6 +145,7 @@
 <body>
     <header>
         <h1>Anima RP <span>Breathing life into code</span></h1>
+        <a href="/manage/" style="color: var(--text-secondary); text-decoration: none; font-size: 0.9rem;">Manage</a>
     </header>
     <div class="container">
         <div id="content"></div>

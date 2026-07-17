@@ -37,3 +37,18 @@ class Trait(models.Model):
 
     def __str__(self):
         return f"{self.character.name}: {self.name} ({self.weight})"
+
+
+class GlobalConfig(models.Model):
+    """Global system-wide configurations (e.g., instructions, language settings)."""
+    key = models.CharField(max_length=100)
+    value = models.TextField()
+    order = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'global_config'
+
+    def __str__(self):
+        return f"{self.key}: {self.value}"

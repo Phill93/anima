@@ -33,6 +33,12 @@ class PromptBuilder:
         """
         parts = []
 
+        # --- Global Instructions (System-wide rules) ---
+        from characters.global_config import get_global_instructions
+        global_instr = get_global_instructions()
+        if global_instr:
+            parts.append("Global Rules:\n" + "\n".join(global_instr))
+
         # --- System Header ---
         parts.append(f"You are {character.name}.")
 

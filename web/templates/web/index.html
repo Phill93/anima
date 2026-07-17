@@ -1,13 +1,24 @@
 {% extends "web/base.html" %}
 {% block content %}
-{% for character in characters %}
-<div class="character-card" onclick="startSession({{ character.pk }})">
+{% for item in char_list %}
+{% with character=item.character last_session=item.last_session %}
+<div class="character-card">
     <div>
         <div class="character-name">{{ character.name }}</div>
         <div class="character-desc">{{ character.description|truncatewords:20 }}</div>
+        
+        {% if last_session %}
+        <div style="margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 0.5rem;">
+            <div style="color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 0.5rem;">
+                Last session: {{ last_session.created_at|date:"M d, H:i" }} ({{ last_session.turn_count }} turns)
+            </div>
+            <button class="btn btn-small" onclick="continueSession({{ last_session.pk }}, '{{ character.name|escapejs }}')">Continue Session #{{ last_session.pk }}</button>
+        </div>
+        {% endif %}
     </div>
-    <button class="btn">Start Session</button>
+    <button class="btn" onclick="startSession({{ character.pk }})">New Session</button>
 </div>
+{% endwith %}
 {% empty %}
 <div style="text-align: center; color: var(--text-secondary); margin-top: 2rem;">
     No characters found. Seed the database first.
@@ -19,10 +30,8 @@ function startSession(characterId) {
     const content = document.getElementById('content');
     const inputContainer = document.getElementById('input-container');
 
-    // Show loading
     content.innerHTML = '<div style="text-align:center; color: var(--text-secondary); margin-top: 2rem;">Initializing session...</div>';
 
-    // Start session
     fetch('/chat/init/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -34,41 +43,72 @@ function startSession(characterId) {
             content.innerHTML = `<div style="text-align:center; color: red;">Error: ${data.error}</div>`;
             return;
         }
-        // Render chat view
-        inputContainer.innerHTML = `
-            <div class="input-area">
-                <input type="text" id="chat-input" placeholder="Type your message..." autocomplete="off">
-                <button class="btn" id="send-btn">Send</button>
-            </div>
-        `;
         renderChat(data.session_id, data.character_name);
     });
 }
 
-function renderChat(sessionId, characterName) {
+function continueSession(sessionId, characterName) {
     const content = document.getElementById('content');
+    content.innerHTML = '<div style="text-align:center; color: var(--text-secondary); margin-top: 2rem;">Loading session history...</div>';
+    
+    fetch(`/manage/session/${sessionId}/`)
+    .then(res => res.text())
+    .then(html => {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const turns = doc.querySelectorAll('.turn');
+        const history = [];
+        turns.forEach((turn, i) => {
+            if (i % 2 === 0) {
+                const userMsg = turn.querySelector('.turn-content').textContent;
+                const charMsg = turns[i+1] ? turns[i+1].querySelector('.turn-content').textContent : '';
+                history.push({ user: userMsg, char: charMsg });
+            }
+        });
+        renderChat(sessionId, characterName, history);
+    });
+}
+
+function renderChat(sessionId, characterName, history = []) {
+    const content = document.getElementById('content');
+    const inputContainer = document.getElementById('input-container');
+
+    inputContainer.innerHTML = '';
     content.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
             <h2 style="color: var(--accent);">${characterName}</h2>
             <button class="btn btn-back" onclick="location.reload()">Exit</button>
         </div>
-        <div id="chat-history" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:1rem;"></div>
+        <div id="chat-history" style="display:flex; flex-direction:column; gap:1rem;"></div>
     `;
 
-    const history = document.getElementById('chat-history');
+    const historyDiv = document.getElementById('chat-history');
+    
+    for (let msg of history) {
+        addMessage(historyDiv, 'user', msg.user);
+        addMessage(historyDiv, 'character', msg.char);
+    }
+
+    inputContainer.innerHTML = `
+        <div class="input-area">
+            <input type="text" id="chat-input" placeholder="Type your message..." autocomplete="off">
+            <button class="btn" id="send-btn">Send</button>
+        </div>
+    `;
+
     const input = document.getElementById('chat-input');
     const sendBtn = document.getElementById('send-btn');
     let isLoading = false;
 
     function scrollToBottom() {
-        history.scrollTop = history.scrollHeight;
+        historyDiv.scrollTop = historyDiv.scrollHeight;
     }
 
-    function addMessage(sender, text) {
+    function addMessage(container, sender, text) {
         const bubble = document.createElement('div');
         bubble.className = `chat-bubble ${sender}`;
         bubble.textContent = text;
-        history.appendChild(bubble);
+        container.appendChild(bubble);
         scrollToBottom();
     }
 
@@ -79,13 +119,12 @@ function renderChat(sessionId, characterName) {
         input.value = '';
         input.disabled = true;
         sendBtn.disabled = true;
-        addMessage('user', text);
+        addMessage(historyDiv, 'user', text);
 
-        // Loading indicator
         const loading = document.createElement('div');
         loading.className = 'loading';
         loading.textContent = '...';
-        history.appendChild(loading);
+        historyDiv.appendChild(loading);
         scrollToBottom();
 
         fetch('/chat/send/', {
@@ -95,16 +134,16 @@ function renderChat(sessionId, characterName) {
         })
         .then(res => res.json())
         .then(data => {
-            history.removeChild(loading);
-            addMessage('character', data.response);
+            historyDiv.removeChild(loading);
+            addMessage(historyDiv, 'character', data.response);
             isLoading = false;
             input.disabled = false;
             sendBtn.disabled = false;
             input.focus();
         })
         .catch(err => {
-            history.removeChild(loading);
-            addMessage('character', `Error: ${err.message}`);
+            historyDiv.removeChild(loading);
+            addMessage(historyDiv, 'character', `Error: ${err.message}`);
             isLoading = false;
             input.disabled = false;
             sendBtn.disabled = false;
@@ -116,4 +155,18 @@ function renderChat(sessionId, characterName) {
     input.focus();
 }
 </script>
+
+<style>
+    .btn-small {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.8rem;
+        border-radius: 4px;
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--text-secondary);
+        cursor: pointer;
+        margin-right: 0.5rem;
+    }
+    .btn-small:hover { background: var(--card-bg); }
+</style>
 {% endblock %}

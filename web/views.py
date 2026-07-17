@@ -5,7 +5,8 @@ from django.views.decorators.csrf import csrf_exempt
 import os
 import json
 
-from characters.models import Character
+from characters.models import Character, Trait, GlobalConfig
+from characters.global_config import get_global_instructions, set_global_instructions
 from anima_sessions.models import Session, SessionTurn
 from memory.retriever import MemoryRetriever
 from characters.prompt_builder import PromptBuilder
@@ -13,9 +14,26 @@ from characters.llm import LLMClient
 
 
 def index(request):
-    """List all characters."""
-    characters = Character.objects.all()
-    return render(request, 'web/index.html', {'characters': characters})
+    """List all characters with their recent sessions."""
+    characters = Character.objects.prefetch_related('active_traits').all()
+    char_ids = [c.pk for c in characters]
+    recent_sessions = Session.objects.filter(character_id__in=char_ids).order_by('character_id', '-created_at')
+    
+    # Build a mapping of character -> last session
+    session_map = {}
+    for s in recent_sessions:
+        if s.character_id not in session_map:
+            session_map[s.character_id] = s
+            
+    # Combine characters and sessions for easier template access
+    char_list = []
+    for c in characters:
+        char_list.append({
+            'character': c,
+            'last_session': session_map.get(c.pk)
+        })
+    
+    return render(request, 'web/index.html', {'char_list': char_list})
 
 
 @csrf_exempt
@@ -113,5 +131,156 @@ def chat_send(request):
 
 
 def chat(request):
-    """Chat view (initial load)."""
-    return render(request, 'web/chat.html')
+  """Chat view (initial load)."""
+  return render(request, 'web/chat.html')
+
+
+def manage(request):
+    """Management dashboard."""
+    characters = Character.objects.prefetch_related('active_traits').all()
+    sessions = Session.objects.select_related('character').order_by('-created_at')[:20]
+    return render(request, 'web/manage.html', {'characters': characters, 'sessions': sessions})
+
+
+def view_session(request, session_id):
+    """View a specific session log."""
+    session = get_object_or_404(Session, pk=session_id)
+    turns = session.turns.order_by('turn_number')
+    return render(request, 'web/session.html', {'session': session, 'turns': turns})
+
+
+@csrf_exempt
+@require_POST
+def get_character_data(request):
+    """Get character data including traits for the editor."""
+    data = json.loads(request.body)
+    char = get_object_or_404(Character, pk=data.get('id'))
+    
+    traits = [
+        {'id': t.pk, 'name': t.name, 'weight': t.weight, 'is_core': t.is_core}
+        for t in char.active_traits.all()
+    ]
+    
+    return JsonResponse({
+        'name': char.name,
+        'description': char.description,
+        'personality': char.personality or {},
+        'traits': traits,
+    })
+
+
+@csrf_exempt
+@require_POST
+def get_character_memories(request):
+    """Get all memories for a character from the DB."""
+    data = json.loads(request.body)
+    char = get_object_or_404(Character, pk=data.get('id'))
+    
+    memories = char.memories.filter(is_archived=False).order_by('-created_at')
+    mem_list = [
+        {
+            'id': m.pk,
+            'embedding_id': m.embedding_id,
+            'text': m.text,
+            'type': m.memory_type,
+            'created': m.created_at.isoformat(),
+        }
+        for m in memories[:50]
+    ]
+    
+    return JsonResponse({'memories': mem_list})
+
+
+@csrf_exempt
+@require_POST
+def get_global_settings(request):
+    """Get global system instructions."""
+    instructions = get_global_instructions()
+    return JsonResponse({'instructions': instructions})
+
+
+@csrf_exempt
+@require_POST
+def save_global_settings(request):
+    """Save global system instructions."""
+    data = json.loads(request.body)
+    instructions = data.get('instructions', [])
+    set_global_instructions(instructions)
+    return JsonResponse({'success': True})
+
+
+@csrf_exempt
+@require_POST
+def delete_memory(request):
+    """Delete a memory."""
+    data = json.loads(request.body)
+    mem_id = data.get('mem_id')
+    
+    mem = get_object_or_404(__import__('memory.models', fromlist=['Memory']).Memory, pk=mem_id)
+    # Also delete from Chroma
+    engine = __import__('memory.services', fromlist=['MemoryEngine']).MemoryEngine()
+    engine.delete(mem.embedding_id)
+    mem.delete()
+    
+    return JsonResponse({'success': True})
+
+
+@csrf_exempt
+@require_POST
+def save_character(request):
+  """Save character details."""
+  data = json.loads(request.body)
+  character_id = data.get('id')
+  char = get_object_or_404(Character, pk=character_id)
+    
+  char.name = data.get('name', char.name)
+  char.description = data.get('description', char.description)
+  # Personality is stored as a JSON field
+  char.personality = {
+      "voice": data.get('voice', ''),
+      "quirks": data.get('quirks', ''),
+      "backstory": data.get('backstory', ''),
+  }
+  char.save()
+    
+  return JsonResponse({'success': True})
+
+
+@csrf_exempt
+@require_POST
+def save_trait(request):
+  """Add or update a trait."""
+  data = json.loads(request.body)
+  character_id = data.get('character_id')
+  trait_id = data.get('trait_id')
+    
+  defaults = {
+      'name': data.get('name', ''),
+      'weight': float(data.get('weight', 0.5)),
+      'is_core': bool(data.get('is_core', False)),
+  }
+    
+  if trait_id:
+      trait = get_object_or_404(Trait, pk=trait_id)
+      if defaults['name']: trait.name = defaults['name']
+      trait.weight = defaults['weight']
+      trait.is_core = defaults['is_core']
+      trait.save()
+  else:
+      Trait.objects.create(
+          character_id=character_id,
+          **defaults
+      )
+        
+  return JsonResponse({'success': True})
+
+
+@csrf_exempt
+@require_POST
+def delete_trait(request):
+  """Delete a trait."""
+  data = json.loads(request.body)
+  trait_id = data.get('trait_id')
+  trait = get_object_or_404(Trait, pk=trait_id)
+  trait.delete()
+  return JsonResponse({'success': True})
