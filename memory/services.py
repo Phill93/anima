@@ -78,6 +78,7 @@ class MemoryEngine:
             query_texts=[query_text],
             n_results=n_results,
             where=where,
+            include=["documents", "metadatas", "distances"],
         )
         return result
 
