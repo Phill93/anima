@@ -25,23 +25,34 @@ class MemoryRetriever:
             if character.memories.filter(embedding_id=embedding_id, is_archived=False).exists():
                 return None
 
-        # 2. Add to Chroma
+        # 2. Calculate initial score (based on type and recency)
+        initial_score = 1.0
+        if memory_type == "event":
+            initial_score = 1.5
+        elif memory_type == "fact":
+            initial_score = 2.0
+        elif memory_type == "relationship":
+            initial_score = 2.5
+
+        # 3. Add to Chroma
         chroma_id = self.engine.add(
             character_id=character.pk,
             text=text,
             memory_type=memory_type,
+            score=initial_score,
             embedding_id=embedding_id,
         )
 
-        # 3. Save to SQLite
+        # 4. Save to SQLite
         memory = Memory.objects.create(
             character=character,
             memory_type=memory_type,
             text=text,
             embedding_id=chroma_id,
+            score=initial_score,
         )
 
-        # 4. Check limit & archive if needed
+        # 5. Check limit & archive if needed
         count = self.engine.count(character.pk)
         if count > MAX_MEMORIES_PER_CHARACTER:
             self.archive_oldest(character, count - MAX_MEMORIES_PER_CHARACTER)
@@ -88,14 +99,15 @@ class MemoryRetriever:
 
     def archive_oldest(self, character: Character, count: int):
         """
-        Archive the oldest `count` memories for a character.
+        Archive the memories with the lowest score (Importance Scoring).
         """
-        oldest = character.memories.filter(is_archived=False).order_by('created_at')[:count]
-        chroma_ids = [m.embedding_id for m in oldest if m.embedding_id]
+        # Sort by score (ascending) to find the least important memories
+        least_important = character.memories.filter(is_archived=False).order_by('score')[:count]
+        chroma_ids = [m.embedding_id for m in least_important if m.embedding_id]
         for cid in chroma_ids:
             self.engine.delete(cid)
 
-        oldest.update(is_archived=True)
+        least_important.update(is_archived=True)
 
     def get_top_traits_memories(self, character: Character):
         """
