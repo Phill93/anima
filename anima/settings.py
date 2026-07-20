@@ -134,3 +134,16 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # --- Celery / Async Configuration ---
 CELERY_BROKER_URL = 'redis://localhost:6379/0'
 CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+
+# Default queue for tasks
+CELERY_TASK_DEFAULT_QUEUE = 'default'
+
+# Schedule for the memory consolidation task (runs nightly at 3 AM UTC)
+from celery.schedules import crontab
+
+CELERY_BEAT_SCHEDULE = {
+    'consolidate-memories-nightly': {
+        'task': 'web.tasks.consolidate_memories',
+        'schedule': crontab(hour=3, minute=0),
+    },
+}

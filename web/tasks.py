@@ -129,9 +129,8 @@ def consolidate_memories():
         # Get sessions older than 3 days with > 5 turns that haven't been summarized
         sessions = Session.objects.filter(
             character=char,
-            summary__isnull=True,
             turn_count__gt=5
-        ).order_by("-created_at")
+        ).exclude(summary__exact="").order_by("-created_at")[:10]
 
         for s in sessions:
             turns = list(s.turns.order_by("turn_number")[:10])
