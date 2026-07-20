@@ -9,6 +9,13 @@ class Character(models.Model):
     traits = models.JSONField(default=dict)       # { "trait_name": 0.5 }
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    world = models.ForeignKey(
+        'worlds.World',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='characters',
+    )
 
     class Meta:
         db_table = 'characters'

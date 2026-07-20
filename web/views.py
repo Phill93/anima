@@ -105,15 +105,17 @@ def chat_send(request):
     # Check for active scenario triggers
     active_scenarios = check_triggers(user_message)
 
-    # Retrieve World Context (Fix: pass world_context to builder)
+    # Retrieve World Context (Fix: use character's world if available)
     world_context = ""
-    try:
-        world_obj = World.objects.first()
-        if world_obj:
-            locs = [f"- {loc.name}: {loc.description}" for loc in world_obj.locations.all()[:3]]
-            world_context = f"{world_obj.name}: {world_obj.description}. Locations: {'; '.join(locs)}."
-    except Exception:
-        pass
+    world_obj = character.world
+    if not world_obj:
+        try:
+            world_obj = World.objects.first()
+        except Exception:
+            pass
+    if world_obj:
+        locs = [f"- {loc.name}: {loc.description}" for loc in world_obj.locations.all()[:3]]
+        world_context = f"{world_obj.name}: {world_obj.description}. Locations: {'; '.join(locs)}."
 
     # Build prompt
     prompt_result = builder.build(character, world_context=world_context, memories=memory_results, conversation=conversation, scenario=active_scenarios)
