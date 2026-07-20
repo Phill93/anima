@@ -105,8 +105,18 @@ def chat_send(request):
     # Check for active scenario triggers
     active_scenarios = check_triggers(user_message)
 
+    # Retrieve World Context (Fix: pass world_context to builder)
+    world_context = ""
+    try:
+        world_obj = World.objects.first()
+        if world_obj:
+            locs = [f"- {loc.name}: {loc.description}" for loc in world_obj.locations.all()[:3]]
+            world_context = f"{world_obj.name}: {world_obj.description}. Locations: {'; '.join(locs)}."
+    except Exception:
+        pass
+
     # Build prompt
-    prompt_result = builder.build(character, memories=memory_results, conversation=conversation, scenario=active_scenarios)
+    prompt_result = builder.build(character, world_context=world_context, memories=memory_results, conversation=conversation, scenario=active_scenarios)
     prompt = prompt_result['prompt']
     debug_info = prompt_result['debug']
 
@@ -226,9 +236,9 @@ def delete_memory(request):
     mem_id = data.get('mem_id')
 
     mem = get_object_or_404(__import__('memory.models', fromlist=['Memory']).Memory, pk=mem_id)
-    # Also delete from Chroma
-    engine = __import__('memory.services', fromlist=['MemoryEngine']).MemoryEngine()
-    engine.delete(mem.embedding_id)
+    # Also delete from Chroma (use the shared singleton instance)
+    from memory.services import memory_engine
+    memory_engine.delete(mem.embedding_id)
     mem.delete()
 
     return JsonResponse({'success': True})

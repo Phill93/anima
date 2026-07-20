@@ -5,7 +5,7 @@ Memory retrieval and management logic.
 - Archival when limit is reached.
 """
 from .models import Memory, MemoryType
-from .services import MemoryEngine
+from .services import memory_engine
 from characters.models import Character
 
 MAX_MEMORIES_PER_CHARACTER = 500
@@ -14,7 +14,7 @@ DEDUP_SIMILARITY_THRESHOLD = 0.08  # Cosine distance < 0.08 => skip
 
 class MemoryRetriever:
     def __init__(self):
-        self.engine = MemoryEngine()
+        self.engine = memory_engine
 
     def add_memory(self, character: Character, text: str, memory_type: str, embedding_id: str = "") -> Memory:
         """

@@ -3,7 +3,7 @@ ChromaDB memory engine.
 
 - Single collection for all memories, filtered by character_id.
 - Persistent storage.
-- BGE-m3 embedding function.
+- BGE-m3 embedding function (Cached/Singleton for performance).
 """
 import os
 from sentence_transformers import SentenceTransformer
@@ -14,31 +14,24 @@ from chromadb.utils import embedding_functions
 CHROMA_PATH = os.path.expanduser("~/.hermes/chroma/anima")
 client = chromadb.PersistentClient(path=CHROMA_PATH)
 
-# Single collection for all memories
-ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+# --- Singleton Embedding Function ---
+# Initialize once to avoid reloading the model on every request
+_model = SentenceTransformer("BAAI/bge-m3")
+_ef = embedding_functions.SentenceTransformerEmbeddingFunction(
     model_name="BAAI/bge-m3"
 )
+
 collection = client.get_or_create_collection(
     name="memories",
     metadata={"hnsw:space": "cosine"},
-    embedding_function=ef,
+    embedding_function=_ef,
 )
-
-
-def get_ef():
-    """
-    Return the embedding function for BGE-m3.
-    """
-    return embedding_functions.SentenceTransformerEmbeddingFunction(
-        model_name="BAAI/bge-m3"
-    )
 
 
 class MemoryEngine:
     """Thin wrapper around Chroma for our memory needs."""
 
     def __init__(self):
-        self.ef = get_ef()
         self.collection = collection
 
     # --- Core ---
@@ -106,3 +99,8 @@ class MemoryEngine:
             where={"character_id": str(character_id)}
         )
         return len(result["ids"])
+
+
+# --- Singleton Instance ---
+# Exported to be shared across the application without re-initializing the model
+memory_engine = MemoryEngine()
