@@ -5,31 +5,68 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
-        ('characters', '0001_initial'),
+        ("characters", "0001_initial"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Memory',
+            name="Memory",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('memory_type', models.CharField(choices=[('fact', 'Fact'), ('event', 'Event'), ('emotion', 'Emotion'), ('relationship', 'Relationship'), ('preference', 'Preference')], max_length=20)),
-                ('text', models.TextField()),
-                ('embedding_id', models.CharField(blank=True, default='', max_length=100)),
-                ('score', models.FloatField(default=1.0)),
-                ('is_archived', models.BooleanField(default=False)),
-                ('session_count', models.PositiveIntegerField(default=0)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('character', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='memories', to='characters.character')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "memory_type",
+                    models.CharField(
+                        choices=[
+                            ("fact", "Fact"),
+                            ("event", "Event"),
+                            ("emotion", "Emotion"),
+                            ("relationship", "Relationship"),
+                            ("preference", "Preference"),
+                        ],
+                        max_length=20,
+                    ),
+                ),
+                ("text", models.TextField()),
+                (
+                    "embedding_id",
+                    models.CharField(blank=True, default="", max_length=100),
+                ),
+                ("score", models.FloatField(default=1.0)),
+                ("is_archived", models.BooleanField(default=False)),
+                ("session_count", models.PositiveIntegerField(default=0)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "character",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="memories",
+                        to="characters.character",
+                    ),
+                ),
             ],
             options={
-                'db_table': 'memory_entries',
-                'indexes': [models.Index(fields=['character', 'is_archived'], name='memory_entr_charact_a7b89e_idx'), models.Index(fields=['memory_type'], name='memory_entr_memory__3293af_idx')],
+                "db_table": "memory_entries",
+                "indexes": [
+                    models.Index(
+                        fields=["character", "is_archived"],
+                        name="memory_entr_charact_a7b89e_idx",
+                    ),
+                    models.Index(
+                        fields=["memory_type"], name="memory_entr_memory__3293af_idx"
+                    ),
+                ],
             },
         ),
     ]

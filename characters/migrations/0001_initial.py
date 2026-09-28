@@ -5,42 +5,77 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
-        ('anima_sessions', '0001_initial'),
+        ("anima_sessions", "0001_initial"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Character',
+            name="Character",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=255)),
-                ('description', models.TextField()),
-                ('personality', models.JSONField(default=dict)),
-                ('traits', models.JSONField(default=dict)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=255)),
+                ("description", models.TextField()),
+                ("personality", models.JSONField(default=dict)),
+                ("traits", models.JSONField(default=dict)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
             ],
             options={
-                'db_table': 'characters',
+                "db_table": "characters",
             },
         ),
         migrations.CreateModel(
-            name='Trait',
+            name="Trait",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=100)),
-                ('weight', models.FloatField(default=1.0)),
-                ('is_core', models.BooleanField(default=False, help_text='If True, this trait cannot be condensed.')),
-                ('character', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='active_traits', to='characters.character')),
-                ('evolved_from_session', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to='anima_sessions.session')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=100)),
+                ("weight", models.FloatField(default=1.0)),
+                (
+                    "is_core",
+                    models.BooleanField(
+                        default=False,
+                        help_text="If True, this trait cannot be condensed.",
+                    ),
+                ),
+                (
+                    "character",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="active_traits",
+                        to="characters.character",
+                    ),
+                ),
+                (
+                    "evolved_from_session",
+                    models.ForeignKey(
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        to="anima_sessions.session",
+                    ),
+                ),
             ],
             options={
-                'db_table': 'traits',
-                'unique_together': {('character', 'name')},
+                "db_table": "traits",
+                "unique_together": {("character", "name")},
             },
         ),
     ]

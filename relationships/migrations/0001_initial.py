@@ -5,27 +5,48 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
-        ('characters', '0001_initial'),
+        ("characters", "0001_initial"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Relationship',
+            name="Relationship",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('score', models.FloatField(default=0.0)),
-                ('notes', models.TextField(blank=True, default='')),
-                ('last_updated', models.DateTimeField(auto_now=True)),
-                ('character_a', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='relationships_as_a', to='characters.character')),
-                ('character_b', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='relationships_as_b', to='characters.character')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("score", models.FloatField(default=0.0)),
+                ("notes", models.TextField(blank=True, default="")),
+                ("last_updated", models.DateTimeField(auto_now=True)),
+                (
+                    "character_a",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="relationships_as_a",
+                        to="characters.character",
+                    ),
+                ),
+                (
+                    "character_b",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="relationships_as_b",
+                        to="characters.character",
+                    ),
+                ),
             ],
             options={
-                'db_table': 'relationships',
-                'unique_together': {('character_a', 'character_b')},
+                "db_table": "relationships",
+                "unique_together": {("character_a", "character_b")},
             },
         ),
     ]

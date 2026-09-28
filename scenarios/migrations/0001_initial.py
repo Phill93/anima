@@ -5,39 +5,69 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
-        ('worlds', '0001_initial'),
+        ("worlds", "0001_initial"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Scenario',
+            name="Scenario",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=255)),
-                ('description', models.TextField()),
-                ('triggers', models.TextField(blank=True, default='')),
-                ('starting_conditions', models.TextField(blank=True, default='')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('world', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='worlds.world')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=255)),
+                ("description", models.TextField()),
+                ("triggers", models.TextField(blank=True, default="")),
+                ("starting_conditions", models.TextField(blank=True, default="")),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "world",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        to="worlds.world",
+                    ),
+                ),
             ],
             options={
-                'db_table': 'scenarios',
+                "db_table": "scenarios",
             },
         ),
         migrations.CreateModel(
-            name='ScenarioTrigger',
+            name="ScenarioTrigger",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('condition', models.TextField()),
-                ('action', models.TextField()),
-                ('scenario', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='scenario_triggers', to='scenarios.scenario')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("condition", models.TextField()),
+                ("action", models.TextField()),
+                (
+                    "scenario",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="scenario_triggers",
+                        to="scenarios.scenario",
+                    ),
+                ),
             ],
             options={
-                'db_table': 'scenario_triggers',
+                "db_table": "scenario_triggers",
             },
         ),
     ]

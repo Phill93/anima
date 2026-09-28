@@ -16,8 +16,9 @@ class Memory(models.Model):
     Stored in both Chroma (for semantic search) and SQLite (for
     archival, dedup tracking, and decay management).
     """
+
     character = models.ForeignKey(
-        'characters.Character', on_delete=models.CASCADE, related_name="memories"
+        "characters.Character", on_delete=models.CASCADE, related_name="memories"
     )
     memory_type = models.CharField(max_length=20, choices=MemoryType.choices)
     text = models.TextField()
@@ -29,10 +30,10 @@ class Memory(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = 'memory_entries'
+        db_table = "memory_entries"
         indexes = [
-            models.Index(fields=['character', 'is_archived']),
-            models.Index(fields=['memory_type']),
+            models.Index(fields=["character", "is_archived"]),
+            models.Index(fields=["memory_type"]),
         ]
 
     def __str__(self):

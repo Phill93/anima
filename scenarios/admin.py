@@ -9,6 +9,6 @@ class TriggerInline(admin.TabularInline):
 
 @admin.register(Scenario)
 class ScenarioAdmin(admin.ModelAdmin):
-    list_display = ('name', 'world', 'created_at')
-    search_fields = ('name', 'description')
+    list_display = ("name", "world", "created_at")
+    search_fields = ("name", "description")
     inlines = [TriggerInline]

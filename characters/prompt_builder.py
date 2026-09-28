@@ -8,8 +8,8 @@ Strategy:
 - World Snippet (max 200 tokens)
 - Last N Turns (dynamic, fills remaining budget)
 """
-import re
-from .models import Character, Trait
+
+from .models import Character
 
 
 def count_tokens(text: str) -> int:
@@ -21,17 +21,24 @@ class PromptBuilder:
     def __init__(self, max_tokens: int = 4096):
         self.max_tokens = max_tokens
 
-    def build(self, character: Character, world_context: str = "", memories: list = None, conversation: list = None, scenario: object = None) -> str:
+    def build(
+        self,
+        character: Character,
+        world_context: str = "",
+        memories: list = None,
+        conversation: list = None,
+        scenario: object = None,
+    ) -> str:
         """
         Build the complete prompt for the LLM.
-        
+
         Args:
             character: The Character instance
             world_context: Pre-rendered world info snippet
             memories: List of memory dicts from Chroma query
             conversation: List of (user, character) turn dicts
             scenario: Optional Scenario instance
-            
+
         Returns:
             The final prompt string.
         """
@@ -40,6 +47,7 @@ class PromptBuilder:
 
         # --- Global Instructions (System-wide rules) ---
         from characters.global_config import get_global_instructions
+
         global_instr = get_global_instructions()
         if global_instr:
             parts.append("Global Rules:\n" + "\n".join(global_instr))
@@ -51,18 +59,16 @@ class PromptBuilder:
         # --- Core Traits (pinned, immutable) ---
         core_traits = character.active_traits.filter(is_core=True)
         if core_traits.exists():
-            core_text = ", ".join([
-                f"{t.name} ({t.weight})" for t in core_traits
-            ])
+            core_text = ", ".join([f"{t.name} ({t.weight})" for t in core_traits])
             parts.append(f"Core Traits (fixed): {core_text}")
             debug_info["core_traits"] = core_text
 
-         # --- Active Traits (Top 5 by weight) ---
-        active_traits = character.active_traits.filter(is_core=False).order_by("-weight")[:5]
+        # --- Active Traits (Top 5 by weight) ---
+        active_traits = character.active_traits.filter(is_core=False).order_by(
+            "-weight"
+        )[:5]
         if active_traits.exists():
-            traits_text = ", ".join([
-                f"{t.name} ({t.weight})" for t in active_traits
-            ])
+            traits_text = ", ".join([f"{t.name} ({t.weight})" for t in active_traits])
             parts.append(f"Current Traits: {traits_text}")
             debug_info["active_traits"] = traits_text
 
@@ -70,7 +76,9 @@ class PromptBuilder:
         if scenario:
             scenario_parts = []
             for s in scenario:
-                scenario_parts.append(f"Scenario '{s['scenario_name']}' (matched: {s['condition']}): {s['action']}")
+                scenario_parts.append(
+                    f"Scenario '{s['scenario_name']}' (matched: {s['condition']}): {s['action']}"
+                )
             if scenario_parts:
                 parts.append("Active Scenarios:\n" + "\n".join(scenario_parts))
                 debug_info["active_scenarios"] = scenario_parts
@@ -89,7 +97,9 @@ class PromptBuilder:
         # --- Memories (Top 3) ---
         if memories:
             memory_texts = []
-            for m in (memories.get("documents", [[]])[0] if isinstance(memories, dict) else []):
+            for m in (
+                memories.get("documents", [[]])[0] if isinstance(memories, dict) else []
+            ):
                 memory_texts.append(m)
             if memory_texts:
                 parts.append("Relevant Memories: " + "; ".join(memory_texts[:3]))
@@ -112,7 +122,9 @@ class PromptBuilder:
                     total_tokens += count_tokens(turn)
 
             if convo_parts:
-                parts.append("Recent Conversation:\n" + "\n\n".join(reversed(convo_parts)))
+                parts.append(
+                    "Recent Conversation:\n" + "\n\n".join(reversed(convo_parts))
+                )
                 debug_info["history"] = convo_parts
 
         return {"prompt": "\n\n".join(parts), "debug": debug_info}

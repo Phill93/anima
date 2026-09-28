@@ -1,6 +1,7 @@
 """
 Celery Tasks for Anima RP System.
 """
+
 from celery import shared_task
 import os
 
@@ -56,18 +57,22 @@ def run_chat_turn(session_id, user_message):
         except Exception:
             pass
     if world_obj:
-        locs = [f"- {loc.name}: {loc.description}" for loc in world_obj.locations.all()[:3]]
-        world_context = f"{world_obj.name}: {world_obj.description}. Locations: {'; '.join(locs)}."
+        locs = [
+            f"- {loc.name}: {loc.description}" for loc in world_obj.locations.all()[:3]
+        ]
+        world_context = (
+            f"{world_obj.name}: {world_obj.description}. Locations: {'; '.join(locs)}."
+        )
 
     prompt_result = builder.build(
         character,
         world_context=world_context,
         memories=memory_results,
         conversation=conversation,
-        scenario=active_scenarios
+        scenario=active_scenarios,
     )
-    prompt = prompt_result['prompt']
-    debug_info = prompt_result['debug']
+    prompt = prompt_result["prompt"]
+    debug_info = prompt_result["debug"]
 
     response = llm.generate(prompt, temperature=0.8, max_tokens=2048)
 
@@ -86,13 +91,13 @@ def run_chat_turn(session_id, user_message):
         character=character,
         text=f"{user_message} -> {response[:100]}",
         memory_type="event",
-        embedding_id=f"session_{session.pk}_turn_{turn.pk}"
+        embedding_id=f"session_{session.pk}_turn_{turn.pk}",
     )
 
     return {
-        'response': response,
-        'turn_number': turn.turn_number,
-        'debug': debug_info,
+        "response": response,
+        "turn_number": turn.turn_number,
+        "debug": debug_info,
     }
 
 
@@ -119,7 +124,7 @@ def consolidate_memories():
     llm = LLMClient(
         base_url=os.getenv("LLM_BASE_URL", "https://ki-toolbox.scc.kit.edu/api/v1"),
         api_key=llm_key,
-        model=os.getenv("LLM_MODEL", "kit.mistral-small-4-119b-a8b")
+        model=os.getenv("LLM_MODEL", "kit.mistral-small-4-119b-a8b"),
     )
     retriever = MemoryRetriever()
 
@@ -127,17 +132,20 @@ def consolidate_memories():
     # Iterate over all characters
     for char in Character.objects.all():
         # Get sessions older than 3 days with > 5 turns that haven't been summarized
-        sessions = Session.objects.filter(
-            character=char,
-            turn_count__gt=5
-        ).exclude(summary__exact="").order_by("-created_at")[:10]
+        sessions = (
+            Session.objects.filter(character=char, turn_count__gt=5)
+            .exclude(summary__exact="")
+            .order_by("-created_at")[:10]
+        )
 
         for s in sessions:
             turns = list(s.turns.order_by("turn_number")[:10])
             # Create a summary prompt
-            summary_prompt = f"Summarize this conversation into 3 bullet points:\n"
+            summary_prompt = "Summarize this conversation into 3 bullet points:\n"
             for t in turns:
-                summary_prompt += f"User: {t.user_message}\nChar: {t.character_response}\n"
+                summary_prompt += (
+                    f"User: {t.user_message}\nChar: {t.character_response}\n"
+                )
 
             summary = llm.generate(summary_prompt, temperature=0.2, max_tokens=150)
             s.summary = summary
@@ -148,7 +156,7 @@ def consolidate_memories():
                 character=char,
                 text=f"Session Summary: {summary}",
                 memory_type="event",
-                embedding_id=f"session_summary_{s.pk}"
+                embedding_id=f"session_summary_{s.pk}",
             )
             processed_count += 1
 

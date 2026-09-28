@@ -4,7 +4,8 @@ Scenario Evaluator - Checks for active scenario triggers.
 Checks if the user's message contains keywords/conditions defined in ScenarioTriggers.
 If a trigger matches, the scenario's context/action is injected into the prompt.
 """
-from .models import Scenario, ScenarioTrigger
+
+from .models import Scenario
 
 
 def check_triggers(user_message: str, session_id: int = None) -> list:
@@ -29,12 +30,14 @@ def check_triggers(user_message: str, session_id: int = None) -> list:
             condition = trigger.condition.lower()
             # Simple keyword containment check
             if condition in user_msg_lower:
-                triggered_scenarios.append({
-                    'scenario_name': scenario.name,
-                    'scenario_desc': scenario.description,
-                    'condition': trigger.condition,
-                    'action': trigger.action,
-                    'starting_conditions': scenario.starting_conditions,
-                })
+                triggered_scenarios.append(
+                    {
+                        "scenario_name": scenario.name,
+                        "scenario_desc": scenario.description,
+                        "condition": trigger.condition,
+                        "action": trigger.action,
+                        "starting_conditions": scenario.starting_conditions,
+                    }
+                )
 
     return triggered_scenarios
