@@ -10,17 +10,29 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import logging
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+logger = logging.getLogger(__name__)
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-es*jd2+rngnj9*n$p%m9i!qavo0flsa@8w7lnjrpmhhn4*-b7c'
+# Secrets: load from the environment, never hardcode them.
+# The old hardcoded key has been rotated (see .env.example). In development,
+# a fixed local key keeps the SQLite session/DB usable across restarts;
+# in any real deployment SECRET_KEY must be set via the environment.
+_SECRET_KEY = os.getenv("SECRET_KEY", "")
+if _SECRET_KEY:
+    SECRET_KEY = _SECRET_KEY
+else:
+    SECRET_KEY = "dev-only-insecure-anima-key-do-not-use-in-production"
+    logger.warning(
+        "SECRET_KEY is not set; using an insecure development key. "
+        "Set the SECRET_KEY environment variable (see .env.example)."
+    )
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
