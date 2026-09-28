@@ -9,8 +9,8 @@ class TraitInline(admin.TabularInline):
 
 @admin.register(Character)
 class CharacterAdmin(admin.ModelAdmin):
-    list_display = ('name', 'created_at', 'updated_at')
-    search_fields = ('name', 'description')
+    list_display = ("name", "created_at", "updated_at")
+    search_fields = ("name", "description")
     inlines = [TraitInline]
 
 

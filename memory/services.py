@@ -5,6 +5,7 @@ ChromaDB memory engine.
 - Persistent storage.
 - BGE-m3 embedding function (Cached/Singleton for performance).
 """
+
 import os
 from sentence_transformers import SentenceTransformer
 import chromadb
@@ -17,9 +18,7 @@ client = chromadb.PersistentClient(path=CHROMA_PATH)
 # --- Singleton Embedding Function ---
 # Initialize once to avoid reloading the model on every request
 _model = SentenceTransformer("BAAI/bge-m3")
-_ef = embedding_functions.SentenceTransformerEmbeddingFunction(
-    model_name="BAAI/bge-m3"
-)
+_ef = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="BAAI/bge-m3")
 
 collection = client.get_or_create_collection(
     name="memories",
@@ -36,7 +35,14 @@ class MemoryEngine:
 
     # --- Core ---
 
-    def add(self, character_id: int, text: str, memory_type: str, score: float = 1.0, embedding_id: str = "") -> str:
+    def add(
+        self,
+        character_id: int,
+        text: str,
+        memory_type: str,
+        score: float = 1.0,
+        embedding_id: str = "",
+    ) -> str:
         """
         Add a memory to Chroma.
         Returns the generated Chroma ID.
@@ -65,14 +71,23 @@ class MemoryEngine:
         )
         return doc_id
 
-    def query(self, character_id: int, query_text: str, n_results: int = 3, memory_type: str = None) -> dict:
+    def query(
+        self,
+        character_id: int,
+        query_text: str,
+        n_results: int = 3,
+        memory_type: str = None,
+    ) -> dict:
         """
         Semantic search for memories of a specific character.
         """
         char_id_str = str(character_id)
         where = {"character_id": char_id_str}
         if memory_type:
-            where["$and"] = [{"character_id": char_id_str}, {"memory_type": memory_type}]
+            where["$and"] = [
+                {"character_id": char_id_str},
+                {"memory_type": memory_type},
+            ]
 
         result = self.collection.query(
             query_texts=[query_text],
@@ -96,9 +111,7 @@ class MemoryEngine:
 
     def count(self, character_id: int) -> int:
         """Count memories for a character."""
-        result = self.collection.get(
-            where={"character_id": str(character_id)}
-        )
+        result = self.collection.get(where={"character_id": str(character_id)})
         return len(result["ids"])
 
 

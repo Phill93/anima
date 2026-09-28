@@ -9,6 +9,6 @@ class LocationInline(admin.TabularInline):
 
 @admin.register(World)
 class WorldAdmin(admin.ModelAdmin):
-    list_display = ('name', 'created_at')
-    search_fields = ('name', 'description')
+    list_display = ("name", "created_at")
+    search_fields = ("name", "description")
     inlines = [LocationInline]

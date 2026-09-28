@@ -4,39 +4,56 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='Session',
+            name="Session",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('summary', models.TextField(blank=True, default='')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('turn_count', models.PositiveIntegerField(default=0)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("summary", models.TextField(blank=True, default="")),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                ("turn_count", models.PositiveIntegerField(default=0)),
             ],
             options={
-                'db_table': 'sessions',
+                "db_table": "sessions",
             },
         ),
         migrations.CreateModel(
-            name='SessionTurn',
+            name="SessionTurn",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('turn_number', models.PositiveIntegerField()),
-                ('user_message', models.TextField()),
-                ('character_response', models.TextField()),
-                ('embedding_id', models.CharField(blank=True, default='', max_length=100)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("turn_number", models.PositiveIntegerField()),
+                ("user_message", models.TextField()),
+                ("character_response", models.TextField()),
+                (
+                    "embedding_id",
+                    models.CharField(blank=True, default="", max_length=100),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
             ],
             options={
-                'db_table': 'session_turns',
-                'ordering': ['turn_number'],
+                "db_table": "session_turns",
+                "ordering": ["turn_number"],
             },
         ),
     ]

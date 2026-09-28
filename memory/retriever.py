@@ -4,7 +4,8 @@ Memory retrieval and management logic.
 - Deduplication on insert.
 - Archival when limit is reached.
 """
-from .models import Memory, MemoryType
+
+from .models import Memory
 from .services import memory_engine
 from characters.models import Character
 
@@ -16,13 +17,17 @@ class MemoryRetriever:
     def __init__(self):
         self.engine = memory_engine
 
-    def add_memory(self, character: Character, text: str, memory_type: str, embedding_id: str = "") -> Memory:
+    def add_memory(
+        self, character: Character, text: str, memory_type: str, embedding_id: str = ""
+    ) -> Memory:
         """
         Add a memory, checking for duplicates and managing the memory cap.
         """
         # 1. Dedup check
         if embedding_id:
-            if character.memories.filter(embedding_id=embedding_id, is_archived=False).exists():
+            if character.memories.filter(
+                embedding_id=embedding_id, is_archived=False
+            ).exists():
                 return None
 
         # 2. Calculate initial score (based on type and recency)
@@ -59,7 +64,13 @@ class MemoryRetriever:
 
         return memory
 
-    def retrieve(self, character: Character, query_text: str, n_results: int = 3, memory_type: str = None):
+    def retrieve(
+        self,
+        character: Character,
+        query_text: str,
+        n_results: int = 3,
+        memory_type: str = None,
+    ):
         """
         Hybrid retrieval: Semantic search re-ranked by keyword matches.
         - Run semantic search to get Top N*3 candidates.
@@ -88,7 +99,7 @@ class MemoryRetriever:
                     non_matches.append((doc, meta, doc_id))
 
             # Combine: matches first, then non_matches up to n_results
-            final = matches + non_matches[:n_results - len(matches)]
+            final = matches + non_matches[: n_results - len(matches)]
 
             # Construct the result structure expected by Chroma
             res["documents"] = [[item[0] for item in final]]
@@ -102,7 +113,9 @@ class MemoryRetriever:
         Archive the memories with the lowest score (Importance Scoring).
         """
         # Sort by score (ascending) to find the least important memories
-        least_important = character.memories.filter(is_archived=False).order_by('score')[:count]
+        least_important = character.memories.filter(is_archived=False).order_by(
+            "score"
+        )[:count]
         chroma_ids = [m.embedding_id for m in least_important if m.embedding_id]
         for cid in chroma_ids:
             self.engine.delete(cid)

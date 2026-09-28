@@ -5,6 +5,7 @@ Trait Evolution Engine.
 - Core traits are immutable.
 - Uses LLM to analyze session summary and suggest changes.
 """
+
 import json
 import re
 
@@ -24,7 +25,9 @@ class TraitEvolution:
         }
         """
         # Get current traits
-        traits = list(character.active_traits.filter(is_core=False).values("name", "weight"))
+        traits = list(
+            character.active_traits.filter(is_core=False).values("name", "weight")
+        )
         trait_str = json.dumps(traits, indent=2)
 
         prompt = f"""
@@ -53,7 +56,7 @@ Respond ONLY with a JSON object:
 
     def _parse_json(self, text: str) -> dict:
         """Extract JSON from LLM response."""
-        match = re.search(r'\{(.*)\}', text, re.DOTALL)
+        match = re.search(r"\{(.*)\}", text, re.DOTALL)
         if match:
             try:
                 return json.loads("{" + match.group(1) + "}")

@@ -5,7 +5,7 @@ from django.views.decorators.csrf import csrf_exempt
 import os
 import json
 
-from characters.models import Character, Trait, GlobalConfig
+from characters.models import Character, Trait
 from characters.global_config import get_global_instructions, set_global_instructions
 from anima_sessions.models import Session, SessionTurn
 from memory.retriever import MemoryRetriever
@@ -17,9 +17,11 @@ from worlds.models import World, Location
 
 def index(request):
     """List all characters with their recent sessions."""
-    characters = Character.objects.prefetch_related('active_traits').all()
+    characters = Character.objects.prefetch_related("active_traits").all()
     char_ids = [c.pk for c in characters]
-    recent_sessions = Session.objects.filter(character_id__in=char_ids).order_by('character_id', '-created_at')
+    recent_sessions = Session.objects.filter(character_id__in=char_ids).order_by(
+        "character_id", "-created_at"
+    )
 
     # Build a mapping of character -> last session
     session_map = {}
@@ -30,12 +32,9 @@ def index(request):
     # Combine characters and sessions for easier template access
     char_list = []
     for c in characters:
-        char_list.append({
-            'character': c,
-            'last_session': session_map.get(c.pk)
-        })
+        char_list.append({"character": c, "last_session": session_map.get(c.pk)})
 
-    return render(request, 'web/index.html', {'char_list': char_list})
+    return render(request, "web/index.html", {"char_list": char_list})
 
 
 @csrf_exempt
@@ -43,10 +42,10 @@ def index(request):
 def chat_init(request):
     """Start a new session."""
     data = json.loads(request.body)
-    character_id = data.get('character_id')
+    character_id = data.get("character_id")
 
     if not character_id:
-        return JsonResponse({'error': 'No character_id provided'}, status=400)
+        return JsonResponse({"error": "No character_id provided"}, status=400)
 
     character = get_object_or_404(Character, pk=character_id)
 
@@ -55,10 +54,12 @@ def chat_init(request):
         turn_count=0,
     )
 
-    return JsonResponse({
-        'session_id': session.pk,
-        'character_name': character.name,
-    })
+    return JsonResponse(
+        {
+            "session_id": session.pk,
+            "character_name": character.name,
+        }
+    )
 
 
 @csrf_exempt
@@ -66,11 +67,11 @@ def chat_init(request):
 def chat_send(request):
     """Process a turn: input -> prompt -> LLM -> response + memory."""
     data = json.loads(request.body)
-    session_id = data.get('session_id')
-    user_message = data.get('message', '').strip()
+    session_id = data.get("session_id")
+    user_message = data.get("message", "").strip()
 
     if not session_id or not user_message:
-        return JsonResponse({'error': 'Missing session_id or message'}, status=400)
+        return JsonResponse({"error": "Missing session_id or message"}, status=400)
 
     session = get_object_or_404(Session, pk=session_id)
     character = session.character
@@ -114,13 +115,23 @@ def chat_send(request):
         except Exception:
             pass
     if world_obj:
-        locs = [f"- {loc.name}: {loc.description}" for loc in world_obj.locations.all()[:3]]
-        world_context = f"{world_obj.name}: {world_obj.description}. Locations: {'; '.join(locs)}."
+        locs = [
+            f"- {loc.name}: {loc.description}" for loc in world_obj.locations.all()[:3]
+        ]
+        world_context = (
+            f"{world_obj.name}: {world_obj.description}. Locations: {'; '.join(locs)}."
+        )
 
     # Build prompt
-    prompt_result = builder.build(character, world_context=world_context, memories=memory_results, conversation=conversation, scenario=active_scenarios)
-    prompt = prompt_result['prompt']
-    debug_info = prompt_result['debug']
+    prompt_result = builder.build(
+        character,
+        world_context=world_context,
+        memories=memory_results,
+        conversation=conversation,
+        scenario=active_scenarios,
+    )
+    prompt = prompt_result["prompt"]
+    debug_info = prompt_result["debug"]
 
     # Call LLM
     response = llm.generate(prompt, temperature=0.8, max_tokens=2048)
@@ -140,34 +151,40 @@ def chat_send(request):
         character=character,
         text=f"{user_message} -> {response[:100]}",
         memory_type="event",
-        embedding_id=f"session_{session.pk}_turn_{turn.pk}"
+        embedding_id=f"session_{session.pk}_turn_{turn.pk}",
     )
 
-    return JsonResponse({
-        'response': response,
-        'turn_number': turn.turn_number,
-        'debug': debug_info,
-    })
+    return JsonResponse(
+        {
+            "response": response,
+            "turn_number": turn.turn_number,
+            "debug": debug_info,
+        }
+    )
 
 
 def chat(request):
     """Chat view (initial load)."""
-    return render(request, 'web/chat.html')
+    return render(request, "web/chat.html")
 
 
 def manage(request):
     """Management dashboard."""
-    characters = Character.objects.prefetch_related('active_traits').all()
-    sessions = Session.objects.select_related('character').order_by('-created_at')[:20]
-    worlds = World.objects.prefetch_related('locations').all()
-    return render(request, 'web/manage.html', {'characters': characters, 'sessions': sessions, 'worlds': worlds})
+    characters = Character.objects.prefetch_related("active_traits").all()
+    sessions = Session.objects.select_related("character").order_by("-created_at")[:20]
+    worlds = World.objects.prefetch_related("locations").all()
+    return render(
+        request,
+        "web/manage.html",
+        {"characters": characters, "sessions": sessions, "worlds": worlds},
+    )
 
 
 def view_session(request, session_id):
     """View a specific session log."""
     session = get_object_or_404(Session, pk=session_id)
-    turns = session.turns.order_by('turn_number')
-    return render(request, 'web/session.html', {'session': session, 'turns': turns})
+    turns = session.turns.order_by("turn_number")
+    return render(request, "web/session.html", {"session": session, "turns": turns})
 
 
 @csrf_exempt
@@ -175,19 +192,21 @@ def view_session(request, session_id):
 def get_character_data(request):
     """Get character data including traits for the editor."""
     data = json.loads(request.body)
-    char = get_object_or_404(Character, pk=data.get('id'))
+    char = get_object_or_404(Character, pk=data.get("id"))
 
     traits = [
-        {'id': t.pk, 'name': t.name, 'weight': t.weight, 'is_core': t.is_core}
+        {"id": t.pk, "name": t.name, "weight": t.weight, "is_core": t.is_core}
         for t in char.active_traits.all()
     ]
 
-    return JsonResponse({
-        'name': char.name,
-        'description': char.description,
-        'personality': char.personality or {},
-        'traits': traits,
-    })
+    return JsonResponse(
+        {
+            "name": char.name,
+            "description": char.description,
+            "personality": char.personality or {},
+            "traits": traits,
+        }
+    )
 
 
 @csrf_exempt
@@ -195,21 +214,21 @@ def get_character_data(request):
 def get_character_memories(request):
     """Get all memories for a character from the DB."""
     data = json.loads(request.body)
-    char = get_object_or_404(Character, pk=data.get('id'))
+    char = get_object_or_404(Character, pk=data.get("id"))
 
-    memories = char.memories.filter(is_archived=False).order_by('-created_at')
+    memories = char.memories.filter(is_archived=False).order_by("-created_at")
     mem_list = [
         {
-            'id': m.pk,
-            'embedding_id': m.embedding_id,
-            'text': m.text,
-            'type': m.memory_type,
-            'created': m.created_at.isoformat(),
+            "id": m.pk,
+            "embedding_id": m.embedding_id,
+            "text": m.text,
+            "type": m.memory_type,
+            "created": m.created_at.isoformat(),
         }
         for m in memories[:50]
     ]
 
-    return JsonResponse({'memories': mem_list})
+    return JsonResponse({"memories": mem_list})
 
 
 @csrf_exempt
@@ -217,7 +236,7 @@ def get_character_memories(request):
 def get_global_settings(request):
     """Get global system instructions."""
     instructions = get_global_instructions()
-    return JsonResponse({'instructions': instructions})
+    return JsonResponse({"instructions": instructions})
 
 
 @csrf_exempt
@@ -225,9 +244,9 @@ def get_global_settings(request):
 def save_global_settings(request):
     """Save global system instructions."""
     data = json.loads(request.body)
-    instructions = data.get('instructions', [])
+    instructions = data.get("instructions", [])
     set_global_instructions(instructions)
-    return JsonResponse({'success': True})
+    return JsonResponse({"success": True})
 
 
 @csrf_exempt
@@ -235,15 +254,18 @@ def save_global_settings(request):
 def delete_memory(request):
     """Delete a memory."""
     data = json.loads(request.body)
-    mem_id = data.get('mem_id')
+    mem_id = data.get("mem_id")
 
-    mem = get_object_or_404(__import__('memory.models', fromlist=['Memory']).Memory, pk=mem_id)
+    mem = get_object_or_404(
+        __import__("memory.models", fromlist=["Memory"]).Memory, pk=mem_id
+    )
     # Also delete from Chroma (use the shared singleton instance)
     from memory.services import memory_engine
+
     memory_engine.delete(mem.embedding_id)
     mem.delete()
 
-    return JsonResponse({'success': True})
+    return JsonResponse({"success": True})
 
 
 @csrf_exempt
@@ -251,20 +273,20 @@ def delete_memory(request):
 def save_character(request):
     """Save character details."""
     data = json.loads(request.body)
-    character_id = data.get('id')
+    character_id = data.get("id")
     char = get_object_or_404(Character, pk=character_id)
 
-    char.name = data.get('name', char.name)
-    char.description = data.get('description', char.description)
+    char.name = data.get("name", char.name)
+    char.description = data.get("description", char.description)
     # Personality is stored as a JSON field
     char.personality = {
-        "voice": data.get('voice', ''),
-        "quirks": data.get('quirks', ''),
-        "backstory": data.get('backstory', ''),
+        "voice": data.get("voice", ""),
+        "quirks": data.get("quirks", ""),
+        "backstory": data.get("backstory", ""),
     }
     char.save()
 
-    return JsonResponse({'success': True})
+    return JsonResponse({"success": True})
 
 
 @csrf_exempt
@@ -272,28 +294,26 @@ def save_character(request):
 def save_trait(request):
     """Add or update a trait."""
     data = json.loads(request.body)
-    character_id = data.get('character_id')
-    trait_id = data.get('trait_id')
+    character_id = data.get("character_id")
+    trait_id = data.get("trait_id")
 
     defaults = {
-        'name': data.get('name', ''),
-        'weight': float(data.get('weight', 0.5)),
-        'is_core': bool(data.get('is_core', False)),
+        "name": data.get("name", ""),
+        "weight": float(data.get("weight", 0.5)),
+        "is_core": bool(data.get("is_core", False)),
     }
 
     if trait_id:
         trait = get_object_or_404(Trait, pk=trait_id)
-        if defaults['name']: trait.name = defaults['name']
-        trait.weight = defaults['weight']
-        trait.is_core = defaults['is_core']
+        if defaults["name"]:
+            trait.name = defaults["name"]
+        trait.weight = defaults["weight"]
+        trait.is_core = defaults["is_core"]
         trait.save()
     else:
-        Trait.objects.create(
-            character_id=character_id,
-            **defaults
-        )
+        Trait.objects.create(character_id=character_id, **defaults)
 
-    return JsonResponse({'success': True})
+    return JsonResponse({"success": True})
 
 
 @csrf_exempt
@@ -301,10 +321,10 @@ def save_trait(request):
 def delete_trait(request):
     """Delete a trait."""
     data = json.loads(request.body)
-    trait_id = data.get('trait_id')
+    trait_id = data.get("trait_id")
     trait = get_object_or_404(Trait, pk=trait_id)
     trait.delete()
-    return JsonResponse({'success': True})
+    return JsonResponse({"success": True})
 
 
 @csrf_exempt
@@ -312,20 +332,20 @@ def delete_trait(request):
 def save_world(request):
     """Create or update a world."""
     data = json.loads(request.body)
-    world_id = data.get('id')
+    world_id = data.get("id")
 
     if world_id:
         world = get_object_or_404(World, pk=world_id)
     else:
         world = World()
 
-    world.name = data.get('name', world.name)
-    world.description = data.get('description', world.description)
-    world.rules = data.get('rules', world.rules)
-    world.lore = data.get('lore', world.lore)
+    world.name = data.get("name", world.name)
+    world.description = data.get("description", world.description)
+    world.rules = data.get("rules", world.rules)
+    world.lore = data.get("lore", world.lore)
     world.save()
 
-    return JsonResponse({'success': True, 'world_id': world.pk})
+    return JsonResponse({"success": True, "world_id": world.pk})
 
 
 @csrf_exempt
@@ -333,20 +353,20 @@ def save_world(request):
 def save_location(request):
     """Create or update a location."""
     data = json.loads(request.body)
-    location_id = data.get('id')
+    location_id = data.get("id")
 
     if location_id:
         location = get_object_or_404(Location, pk=location_id)
     else:
         location = Location()
 
-    location.name = data.get('name', location.name)
-    location.description = data.get('description', location.description)
-    location.connections = data.get('connections', location.connections)
-    location.world_id = data.get('world_id')
+    location.name = data.get("name", location.name)
+    location.description = data.get("description", location.description)
+    location.connections = data.get("connections", location.connections)
+    location.world_id = data.get("world_id")
     location.save()
 
-    return JsonResponse({'success': True, 'location_id': location.pk})
+    return JsonResponse({"success": True, "location_id": location.pk})
 
 
 @csrf_exempt
@@ -354,7 +374,7 @@ def save_location(request):
 def delete_location(request):
     """Delete a location."""
     data = json.loads(request.body)
-    location_id = data.get('location_id')
+    location_id = data.get("location_id")
     location = get_object_or_404(Location, pk=location_id)
     location.delete()
-    return JsonResponse({'success': True})
+    return JsonResponse({"success": True})

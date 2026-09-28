@@ -3,11 +3,11 @@ Seed command: populates the database with example data.
 
 Usage: python manage.py seed
 """
+
 from django.core.management.base import BaseCommand
 from characters.models import Character, Trait
 from worlds.models import World, Location
 from scenarios.models import Scenario, ScenarioTrigger
-from relationships.models import Relationship
 
 
 class Command(BaseCommand):
@@ -20,10 +20,19 @@ class Command(BaseCommand):
             defaults={
                 "description": "A cozy fantasy tavern on the edge of the Darkwood. Rumor has it the barkeep is an ancient wizard, and the cats here can speak.",
                 "rules": "Respect the cats. No magic indoors unless asked.",
-                "lore": [{"key": "Darkwood", "content": "A forest where time moves differently."}]
-            }
+                "lore": [
+                    {
+                        "key": "Darkwood",
+                        "content": "A forest where time moves differently.",
+                    }
+                ],
+            },
         )
-        self.stdout.write(self.style.SUCCESS(f"World: {world.name} ({'created' if created else 'exists'})"))
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"World: {world.name} ({'created' if created else 'exists'})"
+            )
+        )
 
         # --- 2. Location ---
         location, created = Location.objects.get_or_create(
@@ -31,8 +40,8 @@ class Command(BaseCommand):
             name="The Cat Corner",
             defaults={
                 "description": "A warm nook near the fireplace where three talking cats hold court.",
-                "connections": ["Bar", "Kitchen"]
-            }
+                "connections": ["Bar", "Kitchen"],
+            },
         )
         self.stdout.write(self.style.SUCCESS(f"Location: {location.name}"))
 
@@ -44,11 +53,15 @@ class Command(BaseCommand):
                 "personality": {
                     "voice": "Direct, slightly gruff, but warm when she trusts someone.",
                     "quirks": "Taps her fingers when thinking. Hugs cats when stressed.",
-                    "backstory": "Orphaned young, raised by a traveling merchant guild."
-                }
-            }
+                    "backstory": "Orphaned young, raised by a traveling merchant guild.",
+                },
+            },
         )
-        self.stdout.write(self.style.SUCCESS(f"Character: {nyxa.name} ({'created' if created else 'exists'})"))
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Character: {nyxa.name} ({'created' if created else 'exists'})"
+            )
+        )
 
         # --- 4. Traits ---
         core_traits = [
@@ -69,9 +82,11 @@ class Command(BaseCommand):
             trait, created = Trait.objects.update_or_create(
                 character=nyxa,
                 name=name,
-                defaults={"weight": weight, "is_core": is_core}
+                defaults={"weight": weight, "is_core": is_core},
             )
-            self.stdout.write(f"  Trait: {name} (weight: {trait.weight}, core: {trait.is_core})")
+            self.stdout.write(
+                f"  Trait: {name} (weight: {trait.weight}, core: {trait.is_core})"
+            )
 
         # --- 5. Scenario ---
         scenario, created = Scenario.objects.get_or_create(
@@ -80,8 +95,8 @@ class Command(BaseCommand):
             defaults={
                 "description": "Nyxa enters the tavern for the first time. The atmosphere is warm, but suspicious eyes watch her from the shadows.",
                 "triggers": "Nyxa enters",
-                "starting_conditions": "Nyxa is tired and hungry. She has 5 gold coins."
-            }
+                "starting_conditions": "Nyxa is tired and hungry. She has 5 gold coins.",
+            },
         )
         self.stdout.write(self.style.SUCCESS(f"Scenario: {scenario.name}"))
 
@@ -91,9 +106,11 @@ class Command(BaseCommand):
             condition="Nyxa mentions magic",
             defaults={
                 "action": "NPC 'Eldrin' approaches Nyxa asking about her knowledge of spells."
-            }
+            },
         )
 
         self.stdout.write(self.style.SUCCESS("🌱 Database seeded successfully!"))
         self.stdout.write("You can now start a session with:")
-        self.stdout.write("python manage.py run_session --character 1 --world 1 --scenario 1")
+        self.stdout.write(
+            "python manage.py run_session --character 1 --world 1 --scenario 1"
+        )

@@ -4,6 +4,7 @@ Relationship Updater.
 Analyzes session turns to detect interactions between characters
 and updates relationship scores accordingly.
 """
+
 import json
 import re
 
@@ -29,7 +30,7 @@ class RelationshipUpdater:
         }
         """
         char_names = ", ".join(other_characters)
-        
+
         prompt = f"""
 Analyze the following session summary for interactions with other characters.
 Main character: {character.name}
@@ -55,7 +56,7 @@ Respond ONLY with a JSON object:
 
     def _parse_json(self, text: str) -> dict:
         """Extract JSON from LLM response."""
-        match = re.search(r'\{(.*)\}', text, re.DOTALL)
+        match = re.search(r"\{(.*)\}", text, re.DOTALL)
         if match:
             try:
                 return json.loads("{" + match.group(1) + "}")
