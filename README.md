@@ -13,29 +13,45 @@ Anima is a local-first Role-Playing System where characters learn, remember, and
 
 ## Setup
 
+Anforderungen: Python ≥ 3.11, [uv](https://docs.astral.sh/uv/) (oder pip).
+
 1. **Clone & Install:**
    ```bash
    git clone https://github.com/Phill93/anima.git
    cd anima
-   pip install django chromadb sentence-transformers
+   uv venv && uv pip install django django-celery-beat celery chromadb sentence-transformers
+   # oder: pip install django django-celery-beat celery chromadb sentence-transformers
+   source .venv/bin/activate
    ```
 
-2. **Migrations:**
+2. **Umgebungsvariablen:**
    ```bash
-   python manage.py makemigrations
+   cp .env.example .env   # dann füllen (LLM-Endpunkt + API-Key)
+   ```
+   Ohne `.env` greifen die eingebauten ki-toolbox-Defaults — für einen eigenen LLM-Endpunkt `LLM_BASE_URL`/`LLM_MODEL`/`LLM_API_KEY` setzen. Details in `.env.example`.
+
+3. **Migrations:**
+   ```bash
    python manage.py migrate
    ```
 
-3. **Superuser:**
+4. **Superuser:**
    ```bash
    python manage.py createsuperuser
    ```
 
-4. **Run Admin:**
+5. **Run Admin:**
    ```bash
    python manage.py runserver
    # Visit http://127.0.0.1:8000/admin
    ```
+
+6. **Celery (optional, für nächtliche Memory-Konsolidierung):**
+   ```bash
+   celery -A anima worker -B --loglevel=info   # Redis auf localhost:6379 nötig
+   ```
+
+> Hinweis: Beim ersten Start lädt `sentence-transformers` das BGE-m3-Embedding-Modell (~2 GB, einmalig).
 
 ## Usage
 
