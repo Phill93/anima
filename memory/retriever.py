@@ -107,7 +107,9 @@ class MemoryRetriever:
         for cid in chroma_ids:
             self.engine.delete(cid)
 
-        least_important.update(is_archived=True)
+        for m in least_important:
+            m.is_archived = True
+            m.save()
 
     def get_top_traits_memories(self, character: Character):
         """

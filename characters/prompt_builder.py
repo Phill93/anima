@@ -89,8 +89,11 @@ class PromptBuilder:
         # --- Memories (Top 3) ---
         if memories:
             memory_texts = []
-            for m in (memories.get("documents", [[]])[0] if isinstance(memories, dict) else []):
-                memory_texts.append(m)
+            if isinstance(memories, dict) and memories.get("documents"):
+                for m in memories["documents"][0]:
+                    memory_texts.append(m)
+            elif isinstance(memories, list):
+                memory_texts = list(memories)
             if memory_texts:
                 parts.append("Relevant Memories: " + "; ".join(memory_texts[:3]))
                 debug_info["memories"] = memory_texts[:3]
