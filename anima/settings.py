@@ -69,6 +69,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -146,7 +147,10 @@ USE_TZ = True
 STATIC_URL = 'static/'
 
 # collectstatic-Ziel (wird im Docker-Entrypoint gefüllt).
+# WhiteNoise: Static-Files direkt aus Gunicorn serven (kein extra nginx nötig).
+# 'immutable' für versionierte Assets, mit Fallback auf Django für Fehl-Treffer.
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+WHITENOISE_AUTOREFRESH = DEBUG  # im Dev-Modus keine Caches, in Produktion immutable
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

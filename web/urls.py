@@ -1,7 +1,12 @@
 from django.urls import path
+from django.http import JsonResponse
 from . import views
 
+
+# Docker-Healthcheck: reiner Liveness-Ping, keine DB-Abfrage nötig.
+# (DB/Redis-Healthcheck wäre Over-Engineering für ein lokales 1-Host-Setup.)
 urlpatterns = [
+    path('healthz', lambda r: JsonResponse({'status': 'ok'}), name='healthz'),
     path('', views.index, name='index'),
     path('chat/init/', views.chat_init, name='chat_init'),
     path('chat/send/', views.chat_send, name='chat_send'),

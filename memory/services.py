@@ -11,7 +11,8 @@ import chromadb
 from chromadb.utils import embedding_functions
 
 # --- Chroma Client ---
-CHROMA_PATH = os.path.expanduser("~/.hermes/chroma/anima")
+# Pfad aus der Umgebung (Docker: /data/chroma), Default = lokaler Hermes-Ordner.
+CHROMA_PATH = os.environ.get("CHROMA_PATH", os.path.expanduser("~/.hermes/chroma/anima"))
 client = chromadb.PersistentClient(path=CHROMA_PATH)
 
 # --- Singleton Embedding Function ---

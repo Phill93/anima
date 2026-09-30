@@ -10,6 +10,8 @@ dependencies = [
     "django-celery-beat>=2.6",
     "chromadb>=0.4",
     "sentence-transformers>=2.2",
+    "gunicorn>=22.0",
+    "whitenoise>=6.6",
 ]
 
 [dependency-groups]
