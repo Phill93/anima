@@ -1,9 +1,10 @@
 """
 Pytest configuration.
 
-Mocks heavy ML dependencies (chromadb, sentence_transformers) before
-memory.services is imported, so tests run without BGE-m3 or a running
-Chroma instance. LLM calls are mocked per test; the env vars below only
+Mocks chromadb before memory.services is imported, so tests run without
+a running Chroma instance. Embedding calls are an OpenAI-compatible HTTP
+endpoint (see memory/services.py); tests never reach it because the
+engine is mocked. LLM calls are mocked per test; the env vars below only
 keep the LLMClient construction from failing during imports.
 """
 import os
@@ -24,8 +25,10 @@ def _submodule(name):
     return m
 
 _utils = _submodule("chromadb.utils")
+# memory.services does `from chromadb.utils import embedding_functions`
+# and subclasses embedding_functions.EmbeddingFunction — the MagicMock
+# attribute is subclassable, so a bare module mock is sufficient.
 _ef = _submodule("chromadb.utils.embedding_functions")
-_ef.SentenceTransformerEmbeddingFunction = MagicMock(return_value=MagicMock())
 _utils.embedding_functions = _ef
 _chromadb.utils = _utils
 
@@ -33,8 +36,11 @@ sys.modules["chromadb"] = _chromadb
 sys.modules["chromadb.utils"] = _utils
 sys.modules["chromadb.utils.embedding_functions"] = _ef
 
-# --- Mock sentence_transformers (same reason) ---
-sys.modules.setdefault("sentence_transformers", MagicMock())
+# --- Embedding endpoint: tests never call it, but keep the config
+# --- deterministic (memory.services reads these at import time). ---
+os.environ.setdefault("EMBED_BASE_URL", "http://127.0.0.1:7997")
+os.environ.setdefault("EMBED_MODEL", "BAAI/bge-m3")
+os.environ.setdefault("EMBED_API_KEY", "")
 
 # --- LLM env vars: no real server needed (tests mock LLMClient) ---
 os.environ.setdefault("LLM_BASE_URL", "http://localhost:8000/v1")

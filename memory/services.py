@@ -3,22 +3,31 @@ ChromaDB memory engine.
 
 - Single collection for all memories, filtered by character_id.
 - Persistent storage.
-- BGE-m3 embedding function (Cached/Singleton for performance).
+- Embeddings via a generic OpenAI-compatible HTTP endpoint (e.g. vLLM or
+  Infinity serving BAAI/bge-m3). Configured through EMBED_BASE_URL / EMBED_MODEL
+  / EMBED_API_KEY — no local model, no ~2.3 GB RAM per worker.
 
-The model and collection are initialised lazily on first use, so importing
+The client and collection are initialised lazily on first use, so importing
 this module stays cheap. That matters for Gunicorn worker startup,
-management commands and the test suite — none of them should pay the
-~2.3 GB model cost just by importing.
+management commands and the test suite.
 """
+import json
 import logging
 import os
 import threading
+import urllib.error
+import urllib.request
 
 import chromadb
 from chromadb.utils import embedding_functions
-from sentence_transformers import SentenceTransformer
 
 logger = logging.getLogger(__name__)
+
+# --- Embedding endpoint (generic OpenAI-compatible /embeddings API) ---
+# Defaults to a local Infinity/vLLM instance; override per deployment.
+EMBED_BASE_URL = os.environ.get("EMBED_BASE_URL", "http://127.0.0.1:7997")
+EMBED_MODEL = os.environ.get("EMBED_MODEL", "BAAI/bge-m3")
+EMBED_API_KEY = os.environ.get("EMBED_API_KEY", "")
 
 # --- Chroma Client ---
 # Pfad aus der Umgebung (Docker: /data/chroma), Default = lokaler Hermes-Ordner.
@@ -30,26 +39,68 @@ _state = None
 _lock = threading.Lock()
 
 
+class OpenAICompatEmbeddingFunction(embedding_functions.EmbeddingFunction):
+    """
+    Embedding function that calls a generic OpenAI-compatible HTTP endpoint
+    (POST /embeddings) instead of loading a local model.
+
+    Works with vLLM, Infinity or any server that speaks the OpenAI embeddings
+    API. No API key is sent when EMBED_API_KEY is empty.
+    """
+
+    def __init__(self, base_url: str = None, model: str = None, api_key: str = None):
+        self.base_url = (base_url or EMBED_BASE_URL).rstrip("/")
+        self.model = model or EMBED_MODEL
+        self.api_key = api_key if api_key is not None else EMBED_API_KEY
+
+    def __call__(self, input):
+        """Embed one or more texts via the /embeddings endpoint."""
+        payload = json.dumps({"model": self.model, "input": input}).encode("utf-8")
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        req = urllib.request.Request(
+            f"{self.base_url}/embeddings",
+            data=payload,
+            headers=headers,
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        # OpenAI shape: {"data": [{"embedding": [...], "index": N}, ...]}
+        entries = sorted(data.get("data", []), key=lambda e: e.get("index", 0))
+        return [e["embedding"] for e in entries]
+
+    def name(self) -> str:
+        return "openai_compat"
+
+    def get_config(self) -> dict:
+        return {"base_url": self.base_url, "model": self.model, "api_key": self.api_key}
+
+    @classmethod
+    def build_from_config(cls, config: dict):
+        return cls(**config)
+
+
 def _get_state():
-    """Create (once) and return the shared client, model, ef, collection."""
+    """Create (once) and return the shared client, ef, collection."""
     global _state
     if _state is not None:
         return _state
     with _lock:
         if _state is not None:
             return _state
-        model_name = os.environ.get("EMBED_MODEL", "BAAI/bge-m3")
-        logger.info("Initialising Chroma at %s (model: %s)", CHROMA_PATH, model_name)
+        logger.info("Initialising Chroma at %s (embeddings: %s, model: %s)",
+                    CHROMA_PATH, EMBED_BASE_URL, EMBED_MODEL)
         os.makedirs(CHROMA_PATH, exist_ok=True)
         client = chromadb.PersistentClient(path=CHROMA_PATH)
-        model = SentenceTransformer(model_name)
-        ef = embedding_functions.SentenceTransformerEmbeddingFunction(model_name=model_name)
+        ef = OpenAICompatEmbeddingFunction()
         collection = client.get_or_create_collection(
             name="memories",
             metadata={"hnsw:space": "cosine"},
             embedding_function=ef,
         )
-        _state = {"client": client, "model": model, "ef": ef, "collection": collection}
+        _state = {"client": client, "ef": ef, "collection": collection}
     return _state
 
 
@@ -135,6 +186,7 @@ class MemoryEngine:
 
 
 # --- Singleton Instance ---
-# Exported to be shared across the application without re-initializing the model.
-# Construction is cheap; the model is only loaded on the first Chroma operation.
+# Exported to be shared across the application without re-initialising the
+# client. Construction is cheap; the connection is only established on the
+# first Chroma operation.
 memory_engine = MemoryEngine()

@@ -8,10 +8,7 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     UV_LINK_MODE=copy \
-    UV_PROJECT_ENVIRONMENT=/app/.venv \
-    # Sentence-Transformer-Modell (bge-m3, ~2 GB) im Data-Volume halten,
-    # damit es nach einem Container-Rebuild nicht neu geladen wird.
-    HF_HOME=/data/hf-cache
+    UV_PROJECT_ENVIRONMENT=/app/.venv
 
 # uv (Version = lokale Entwicklungs-Umgebung, 2026-09)
 RUN pip install --no-cache-dir uv==0.12.14
@@ -27,7 +24,7 @@ COPY . .
 # `uv sync` installiert standardmäßig nur die Haupt-Dependencies).
 RUN uv sync --frozen
 
-# Non-Root-User; /data = SQLite + ChromaDB + Static-Files + HF-Modell-Cache
+# Non-Root-User; /data = SQLite + ChromaDB + Static-Files
 RUN useradd -m anima && mkdir -p /data && chown -R anima:anima /data /app
 USER anima
 

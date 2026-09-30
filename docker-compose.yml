@@ -8,6 +8,7 @@
 #   DJANGO_SECRET_KEY   zwingend bei DJANGO_DEBUG=false
 #   DJANGO_DEBUG, DJANGO_ALLOWED_HOSTS, SQLITE_PATH, REDIS_URL
 #   LLM_BASE_URL, LLM_MODEL, LLM_API_KEY/KIT_API_KEY (nur für Live-Chat)
+#   EMBED_BASE_URL, EMBED_MODEL, EMBED_API_KEY (OpenAI-kompatibles Embedding)
 #
 name: anima
 
@@ -18,7 +19,11 @@ x-anima-env: &anima-env
   SQLITE_PATH: ${SQLITE_PATH:-/data/anima.db}
   REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
   CHROMA_PATH: ${CHROMA_PATH:-/data/chroma}
-  # HF-Model-Cache im Data-Volume (wird in der Dockerfile gesetzt)
+  # Embeddings: generisches OpenAI-kompatibles HTTP-Endpoint (z.B. Infinity/vLLM mit bge-m3).
+  # Kein lokales Modell mehr — die Container brauchen nur einen erreichbaren Endpoint.
+  EMBED_BASE_URL: ${EMBED_BASE_URL:-http://127.0.0.1:7997}
+  EMBED_MODEL: ${EMBED_MODEL:-BAAI/bge-m3}
+  EMBED_API_KEY: ${EMBED_API_KEY:-}
   LLM_BASE_URL: ${LLM_BASE_URL:-https://ki-toolbox.scc.kit.edu/api/v1}
   LLM_MODEL: ${LLM_MODEL:-kit.mistral-small-4-119b-a8b}
   LLM_API_KEY: ${LLM_API_KEY:-}
@@ -88,5 +93,5 @@ services:
         condition: service_healthy
 
 volumes:
-  anima_data:    # SQLite + ChromaDB + HF-Model-Cache
+  anima_data:    # SQLite + ChromaDB + Static-Files
   anima_redis:
