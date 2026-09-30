@@ -76,6 +76,12 @@ services:
     command: celery -A anima worker -l info --concurrency 2
     volumes:
       - anima_data:/data
+    healthcheck:
+      test: ["CMD", "celery", "-A", "anima", "inspect", "ping"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     depends_on:
       redis:
         condition: service_healthy
@@ -88,6 +94,15 @@ services:
     command: celery -A anima beat -l info
     volumes:
       - anima_data:/data
+    healthcheck:
+      # Beat hat keinen Ping-Endpoint (celery status prüft nur die Broker-
+      # Verbindung, nicht Beat selbst); Liveness-Check auf den PID-1-Prozess
+      # ist der ehrlichste Indikator, dass Beat noch läuft.
+      test: ["CMD-SHELL", "grep -qa celery /proc/1/cmdline"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     depends_on:
       redis:
         condition: service_healthy

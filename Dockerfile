@@ -31,9 +31,9 @@ USER anima
 
 EXPOSE 8000
 
-# Healthcheck ohne curl (slim-Image): Python-Stdlib reicht.
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz')" || exit 1
+# Healthchecks sind ein Deploy-Concern (pro-Service, in docker-compose.yml) —
+# kein Image-Concern. Ein Image-Healthcheck würde von worker/beat geerbt werden
+# und auf Port 8000 schlagen, wo kein HTTP-Server lauscht -> dauerhaft unhealthy.
 
 # Migrate + collectstatic vor jedem Start; CMD pro Service (web/worker/beat).
 ENTRYPOINT ["/app/docker/entrypoint.sh"]
