@@ -7,7 +7,7 @@ Anima is a local-first Role-Playing System where characters learn, remember, and
 ## Architecture
 
 - **Backend:** Django 5 + SQLite
-- **Memory Engine:** ChromaDB (BGE-m3 embeddings)
+- **Memory Engine:** ChromaDB (Embeddings via OpenAI-kompatible API, z.B. BGE-m3 auf vLLM/Infinity)
 - **LLM Integration:** OpenAI-compatible API (vLLM, Ollama, etc.)
 - **Focus:** Character growth, cross-session memory, and dynamic storytelling.
 
@@ -17,7 +17,7 @@ Anima is a local-first Role-Playing System where characters learn, remember, and
    ```bash
    git clone https://github.com/Phill93/anima.git
    cd anima
-   pip install django chromadb sentence-transformers
+   pip install django chromadb
    ```
 
 2. **Migrations:**
@@ -31,7 +31,13 @@ Anima is a local-first Role-Playing System where characters learn, remember, and
    python manage.py createsuperuser
    ```
 
-4. **Run Admin:**
+4. **Embedding-Endpunkt:** Anima nutzt ein generisches OpenAI-kompatibles
+   `/embeddings`-API (z.B. Infinity oder vLLM mit `BAAI/bge-m3`).
+   Konfiguration via Umgebungsvariablen (Details in `.env.example`):
+   `EMBED_BASE_URL` (Default `http://127.0.0.1:7997`), `EMBED_MODEL`,
+   optional `EMBED_API_KEY`.
+
+5. **Run Admin:**
    ```bash
    python manage.py runserver
    # Visit http://127.0.0.1:8000/admin
