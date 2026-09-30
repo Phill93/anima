@@ -8,7 +8,8 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     UV_LINK_MODE=copy \
-    UV_PROJECT_ENVIRONMENT=/app/.venv
+    UV_PROJECT_ENVIRONMENT=/app/.venv \
+    PATH=/app/.venv/bin:$PATH
 
 # uv (Version = lokale Entwicklungs-Umgebung, 2026-09)
 RUN pip install --no-cache-dir uv==0.12.14
