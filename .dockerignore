@@ -13,6 +13,9 @@ docker-compose.yml
 .env.example
 # NOTE: docker/entrypoint.sh MUSS ins Image (ENTRYPOINT-Pfad) — nur
 # compose/Build-Artefakte bleiben draußen.
-README.md
 LICENSE
+# Alle Markdown-Docs bleiben draußen — ABER README.md muss im Build-Kontext
+# sein: `uv sync` baut das Anima-Paket selbst (hatchling), und pyproject
+# deklariert `readme = "README.md"`. Ohne README.md bricht der Build ab.
 *.md
+!README.md
