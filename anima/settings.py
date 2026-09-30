@@ -10,22 +10,40 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
+# --- Environment-based configuration (production) ---
+# Alle produktiven Werte kommen aus der Umgebung (docker-compose / .env):
+#   DJANGO_SECRET_KEY, DJANGO_DEBUG, DJANGO_ALLOWED_HOSTS,
+#   SQLITE_PATH, REDIS_URL, CHROMA_PATH (siehe memory/services.py)
+#
+# Default = lokaler Dev-Betrieb (wie bei Django-Template): DEBUG=true mit
+# Fallback-Schlüssel. Produktion setzt DJANGO_DEBUG=false — dann ist
+# DJANGO_SECRET_KEY zwingend, sonst wird hart abgebrochen.
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-es*jd2+rngnj9*n$p%m9i!qavo0flsa@8w7lnjrpmhhn4*-b7c'
+DEBUG = os.environ.get('DJANGO_DEBUG', 'true') == 'true'
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+if not SECRET_KEY:
+    if DEBUG:
+        # Fallback nur für lokale Entwicklung — Produktion liefert DJANGO_SECRET_KEY zwingend.
+        SECRET_KEY = 'django-insecure-es*jd2+rngnj9*n$p%m9i!qavo0flsa@8w7lnjrpmhhn4*-b7c'
+    else:
+        from django.core.exceptions import ImproperlyConfigured
 
-ALLOWED_HOSTS = ['*']
+        raise ImproperlyConfigured('DJANGO_SECRET_KEY muss gesetzt sein, wenn DEBUG aus ist.')
+
+# ALLOWED_HOSTS — env: "hostname1,hostname2" (komma-separiert)
+ALLOWED_HOSTS = [
+    h.strip()
+    for h in os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1,0.0.0.0').split(',')
+    if h.strip()
+]
 
 
 # Application definition
@@ -82,10 +100,11 @@ WSGI_APPLICATION = 'anima.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+# SQLite-Pfad: lokal im Repo, in Docker unter /data (Volume).
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': os.environ.get('SQLITE_PATH', str(BASE_DIR / 'db.sqlite3')),
     }
 }
 
@@ -126,14 +145,25 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# collectstatic-Ziel (wird im Docker-Entrypoint gefüllt).
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# --- Produktionssicherheit (nur wenn DEBUG aus) ---
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_BROWSER_XSS_FILTER = True
+    X_FRAME_OPTIONS = 'DENY'
+
 # --- Celery / Async Configuration ---
-CELERY_BROKER_URL = 'redis://localhost:6379/0'
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+CELERY_BROKER_URL = REDIS_URL
+CELERY_RESULT_BACKEND = REDIS_URL
 
 # Default queue for tasks
 CELERY_TASK_DEFAULT_QUEUE = 'default'
