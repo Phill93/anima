@@ -40,3 +40,9 @@ sys.modules.setdefault("sentence_transformers", MagicMock())
 os.environ.setdefault("LLM_BASE_URL", "http://localhost:8000/v1")
 os.environ.setdefault("LLM_API_KEY", "test-key")
 os.environ.setdefault("LLM_MODEL", "test-model")
+
+# --- Django env vars: settings.py is env-based (prod hardening) ---
+# Tests run with DEBUG=true (as before) + a test secret + testserver host.
+os.environ.setdefault("DJANGO_DEBUG", "true")
+os.environ.setdefault("DJANGO_SECRET_KEY", "test-secret-key")
+os.environ.setdefault("DJANGO_ALLOWED_HOSTS", "testserver,localhost,127.0.0.1")

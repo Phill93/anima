@@ -1,0 +1,92 @@
+# Anima — Compose-Setup (web + redis + celery worker + beat)
+#
+# Start:  cp .env.example .env  # (einmalig) dann:
+#         docker compose up -d --build
+# Status: docker compose ps          Logs: docker compose logs -f [service]
+#
+# Umgebungsvariablen kommen aus .env (compose lädt sie automatisch):
+#   DJANGO_SECRET_KEY   zwingend bei DJANGO_DEBUG=false
+#   DJANGO_DEBUG, DJANGO_ALLOWED_HOSTS, SQLITE_PATH, REDIS_URL
+#   LLM_BASE_URL, LLM_MODEL, LLM_API_KEY/KIT_API_KEY (nur für Live-Chat)
+#
+name: anima
+
+x-anima-env: &anima-env
+  DJANGO_DEBUG: ${DJANGO_DEBUG:-false}
+  DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+  DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
+  SQLITE_PATH: ${SQLITE_PATH:-/data/anima.db}
+  REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+  CHROMA_PATH: ${CHROMA_PATH:-/data/chroma}
+  # HF-Model-Cache im Data-Volume (wird in der Dockerfile gesetzt)
+  LLM_BASE_URL: ${LLM_BASE_URL:-https://ki-toolbox.scc.kit.edu/api/v1}
+  LLM_MODEL: ${LLM_MODEL:-kit.mistral-small-4-119b-a8b}
+  LLM_API_KEY: ${LLM_API_KEY:-}
+  KIT_API_KEY: ${KIT_API_KEY:-}
+
+services:
+  web:
+    build: .
+    image: anima:local
+    restart: unless-stopped
+    environment:
+      <<: *anima-env
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-2}
+    ports:
+      - "${ANIMA_WEB_PORT:-8080}:8000"
+    volumes:
+      - anima_data:/data
+    command: >
+      gunicorn anima.wsgi:application
+      --bind 0.0.0.0:8000
+      --workers ${GUNICORN_WORKERS:-2}
+      --timeout 120
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - anima_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  worker:
+    image: anima:local
+    restart: unless-stopped
+    environment:
+      <<: *anima-env
+    command: celery -A anima worker -l info --concurrency 2
+    volumes:
+      - anima_data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  beat:
+    image: anima:local
+    restart: unless-stopped
+    environment:
+      <<: *anima-env
+    command: celery -A anima beat -l info
+    volumes:
+      - anima_data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  anima_data:    # SQLite + ChromaDB + HF-Model-Cache
+  anima_redis:

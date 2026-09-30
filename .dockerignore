@@ -1,0 +1,18 @@
+.git
+.gitignore
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+.coverage
+db.sqlite3
+staticfiles
+.env
+Dockerfile
+docker-compose.yml
+.env.example
+# NOTE: docker/entrypoint.sh MUSS ins Image (ENTRYPOINT-Pfad) — nur
+# compose/Build-Artefakte bleiben draußen.
+README.md
+LICENSE
+*.md
