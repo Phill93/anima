@@ -3,5 +3,8 @@ __pycache__/
 db.sqlite3
 *.chroma/
 
+# secrets / local config — NIE committen
+.env
+
 # test artifacts
 .coverage
